@@ -1,0 +1,8 @@
+{
+  "name": "The Mars TV - Real Estate Platform",
+  "description": "Premier real estate portal to buy, sell, and rent verified residential and commercial properties in India.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
