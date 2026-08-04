@@ -20,7 +20,7 @@ export default function BrandPartners({ partners }: BrandPartnersProps) {
               style={{ fontFamily: 'Poppins, sans-serif' }}
             >
               <Building className="w-6 h-6 text-[#D61F26]" />
-              OUR BRAND PARTNERS & BANKING ALLIANCES
+              BRAND PARTNERS
             </h2>
             <span className="w-12 h-[3.5px] bg-[#D61F26] rounded-full block" />
           </div>

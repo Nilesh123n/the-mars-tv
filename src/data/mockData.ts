@@ -502,7 +502,7 @@ export const initialNews: NewsItem[] = [
     slug: 'rbi-keeps-interest-rates-unchanged-impact-home-loans',
     excerpt: 'The Reserve Bank of India has decided to keep the repo rate unchanged at 6.5%, bringing stability to home loan interest rates and buyer sentiment across India.',
     content: '<p>The Reserve Bank of India Monetary Policy Committee has announced its decision to maintain the repo rate at 6.50% for the seventh consecutive meeting.</p><p>This decision comes as welcome news for homebuyers and real estate developers alike, providing consistency in EMI calculations and mortgage interest rates across nationalized and private banks.</p><p>Market analysts predict a surge in property inquiries in tier-1 and tier-2 cities like Indore, Bhopal, and Pune during the upcoming festive quarter.</p>',
-    category: 'Market News',
+    category: 'Market Trends',
     image: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&q=80',
     author: 'Editorial Team',
     publishedAt: '2026-07-26T00:00:00Z',
@@ -540,6 +540,20 @@ export const initialNews: NewsItem[] = [
   },
   {
     id: 'news-4',
+    title: 'RERA 2.0 Transparency Norms Implemented Nationwide',
+    slug: 'rera-2-transparency-norms-implemented-nationwide',
+    excerpt: 'New RERA guidelines mandate mandatory Escrow account auditing and digital project progress tracking for developers.',
+    content: '<p>Under the new RERA 2.0 framework, all real estate developers must update construction milestones quarterly with geotagged site photographs.</p>',
+    category: 'Policy Update',
+    image: 'https://images.unsplash.com/photo-1450133064473-71024230f91b?w=800&q=80',
+    author: 'Legal Desk',
+    publishedAt: '2026-07-21T00:00:00Z',
+    isFeatured: false,
+    status: 'PUBLISHED',
+    viewCount: 1240
+  },
+  {
+    id: 'news-5',
     title: 'Smart Home Technology Trends Reshaping Property Demand',
     slug: 'smart-home-technology-trends-reshaping-property-demand',
     excerpt: 'Automated lighting, IoT climate control, and app-based security systems are now key purchase factors for modern urban homebuyers.',
@@ -551,6 +565,20 @@ export const initialNews: NewsItem[] = [
     isFeatured: false,
     status: 'PUBLISHED',
     viewCount: 860
+  },
+  {
+    id: 'news-6',
+    title: 'AI & Virtual Reality Site Tours Revolutionize Homebuying',
+    slug: 'ai-virtual-reality-site-tours-revolutionize-homebuying',
+    excerpt: '3D walkthroughs, AI property valuation models, and instant drone surveillance enhance remote buyer confidence.',
+    content: '<p>PropTech innovations allow non-resident buyers and out-station investors to inspect architectural blueprints and interior spaces in immersive 3D VR before making down payments.</p>',
+    category: 'Technology',
+    image: 'https://images.unsplash.com/photo-1593508512255-86ab42a8e620?w=800&q=80',
+    author: 'Innovation Team',
+    publishedAt: '2026-07-18T00:00:00Z',
+    isFeatured: false,
+    status: 'PUBLISHED',
+    viewCount: 950
   }
 ];
 
