@@ -29,8 +29,8 @@ export default function LatestNews({
         (selectedCategory === 'Policy Update' && n.category.toLowerCase().includes('policy'))
       );
 
-  const featured = filteredItems.find((n) => n.isFeatured) || filteredItems[0] || newsItems[0];
-  const sideArticles = filteredItems.filter((n) => n.id !== featured?.id).slice(0, 3);
+  // Take exactly 2 items for every category tab
+  const displayItems = filteredItems.slice(0, 2);
 
   return (
     <section className="py-14 bg-[#F8F9FA] border-b border-gray-200/80">
@@ -82,104 +82,65 @@ export default function LatestNews({
           </div>
         </div>
 
-        {/* Content Layout */}
-        {filteredItems.length === 0 ? (
+        {/* 2 News Cards Stacked Vertically (Image Left, Text Right) */}
+        {displayItems.length === 0 ? (
           <div className="bg-white rounded-2xl p-10 text-center border border-gray-200">
             <p className="text-gray-500 font-medium">No articles found in this category.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-7">
-            {/* Main Featured Article */}
-            {featured && (
+          <div className="flex flex-col gap-6 max-w-[1180px] mx-auto">
+            {displayItems.map((item) => (
               <div
-                onClick={() => onSelectNews(featured)}
-                className="lg:col-span-5 bg-white rounded-[20px] overflow-hidden border border-gray-200/90 shadow-[0_4px_24px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_36px_rgba(0,0,0,0.12)] hover:-translate-y-1 transition-all duration-300 flex flex-col group cursor-pointer"
+                key={item.id}
+                onClick={() => onSelectNews(item)}
+                className="bg-white rounded-[20px] overflow-hidden border border-gray-200/90 shadow-[0_4px_20px_rgba(0,0,0,0.05)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.1)] hover:-translate-y-0.5 transition-all duration-300 flex flex-col sm:flex-row group cursor-pointer"
               >
-                <div className="relative h-[260px] overflow-hidden bg-gray-200">
+                {/* Left Side Image */}
+                <div className="relative w-full sm:w-[280px] md:w-[340px] lg:w-[380px] h-[210px] sm:h-auto min-h-[200px] flex-shrink-0 overflow-hidden bg-gray-200">
                   <img
-                    src={featured.image}
-                    alt={featured.title}
+                    src={item.image}
+                    alt={item.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                   <div className="absolute top-3 left-3 bg-[#D61F26] text-white text-[10.5px] font-extrabold px-3 py-1 rounded-md uppercase tracking-wider shadow-md">
-                    {featured.category}
+                    {item.category}
                   </div>
                 </div>
 
-                <div className="p-6 flex-1 flex flex-col justify-between">
+                {/* Right Side Text Content */}
+                <div className="p-5 sm:p-6 flex-1 flex flex-col justify-between">
                   <div>
-                    <div className="flex items-center gap-3 text-[12px] text-gray-500 mb-3">
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5 text-gray-400" />
-                        {new Date(featured.publishedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    <div className="flex items-center gap-3 text-[12px] text-gray-500 mb-2.5">
+                      <span className="flex items-center gap-1.5 font-medium">
+                        <Clock className="w-3.5 h-3.5 text-[#D61F26]" />
+                        {new Date(item.publishedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                       </span>
                       <span>•</span>
-                      <span className="flex items-center gap-1 text-gray-600 font-medium">
+                      <span className="flex items-center gap-1.5 text-gray-600 font-semibold">
                         <User className="w-3.5 h-3.5 text-gray-400" />
-                        {featured.author}
+                        {item.author}
                       </span>
                     </div>
 
                     <h3
-                      className="text-[19px] font-bold text-[#222222] mb-3 leading-snug group-hover:text-[#D61F26] transition-colors"
+                      className="text-[17px] sm:text-[19px] font-bold text-[#222222] mb-2.5 leading-snug group-hover:text-[#D61F26] transition-colors"
                       style={{ fontFamily: 'Poppins, sans-serif' }}
                     >
-                      {featured.title}
+                      {item.title}
                     </h3>
 
-                    <p className="text-[14px] text-gray-600 leading-relaxed mb-4 line-clamp-3">
-                      {featured.excerpt}
+                    <p className="text-[13.5px] sm:text-[14px] text-gray-600 leading-relaxed mb-4 line-clamp-2 sm:line-clamp-3">
+                      {item.excerpt}
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-1.5 text-[#D61F26] font-bold text-[13.5px] pt-3 border-t border-gray-100 group-hover:underline">
+                  <div className="flex items-center gap-1.5 text-[#D61F26] font-bold text-[13.5px] pt-3 border-t border-gray-100 group-hover:underline mt-auto">
                     <span>Read Full Article</span>
                     <ArrowRight className="w-4 h-4" />
                   </div>
                 </div>
               </div>
-            )}
-
-            {/* Side Articles Grid */}
-            <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-3 gap-5">
-              {sideArticles.map((item) => (
-                <div
-                  key={item.id}
-                  onClick={() => onSelectNews(item)}
-                  className="bg-white rounded-[18px] overflow-hidden border border-gray-200/90 shadow-[0_4px_16px_rgba(0,0,0,0.05)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.1)] hover:-translate-y-1 transition-all duration-300 flex flex-col group cursor-pointer"
-                >
-                  <div className="relative h-[150px] overflow-hidden bg-gray-200">
-                    <img
-                      src={item.image}
-                      alt={item.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                    <div className="absolute top-2.5 left-2.5 bg-[#D61F26] text-white text-[9px] font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wider shadow">
-                      {item.category}
-                    </div>
-                  </div>
-
-                  <div className="p-4 flex-1 flex flex-col justify-between">
-                    <div>
-                      <div className="text-[11px] text-gray-400 mb-1.5">
-                        {new Date(item.publishedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
-                      </div>
-                      <h4
-                        className="text-[14px] font-bold text-[#222222] mb-2 leading-snug line-clamp-2 group-hover:text-[#D61F26] transition-colors"
-                        style={{ fontFamily: 'Poppins, sans-serif' }}
-                      >
-                        {item.title}
-                      </h4>
-                    </div>
-
-                    <div className="flex items-center gap-1 text-[#D61F26] font-bold text-[12.5px] pt-2 border-t border-gray-100 group-hover:underline">
-                      <span>Read</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            ))}
           </div>
         )}
 
@@ -187,4 +148,5 @@ export default function LatestNews({
     </section>
   );
 }
+
 
