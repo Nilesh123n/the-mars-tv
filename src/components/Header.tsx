@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Home, Building2, Building, Newspaper, Megaphone, Phone, Heart, Menu, X, PlusCircle, Calculator } from 'lucide-react';
+import { Home, Building2, Building, Newspaper, Megaphone, Phone, Heart, Menu, X, PlusCircle, Calculator, KeyRound, HardHat } from 'lucide-react';
 
 interface HeaderProps {
   currentView: string;
@@ -13,6 +13,8 @@ const navLinks = [
   { id: 'home', label: 'Home', icon: Home },
   { id: 'residential', label: 'Residential', icon: Building },
   { id: 'commercial', label: 'Commercial', icon: Building2 },
+  { id: 'rent', label: 'Rent', icon: KeyRound },
+  { id: 'construction', label: 'Construction', icon: HardHat },
   { id: 'news', label: 'News', icon: Newspaper },
   { id: 'pr-services', label: 'PR Services', icon: Megaphone },
   { id: 'contact', label: 'Contact Us', icon: Phone },

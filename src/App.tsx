@@ -14,6 +14,8 @@ import Footer from './components/Footer';
 // Pages
 import ResidentialPage from './components/pages/ResidentialPage';
 import CommercialPage from './components/pages/CommercialPage';
+import RentPage from './components/pages/RentPage';
+import ConstructionPage from './components/pages/ConstructionPage';
 import NewsPage from './components/pages/NewsPage';
 import PRServicesPage from './components/pages/PRServicesPage';
 import ContactPage from './components/pages/ContactPage';
@@ -361,6 +363,22 @@ export default function App() {
             wishlist={wishlist}
             onToggleWishlist={handleToggleWishlist}
             onSelectProperty={(p) => setSelectedProperty(p)}
+          />
+        )}
+
+        {currentView === 'rent' && (
+          <RentPage
+            properties={properties}
+            wishlist={wishlist}
+            onToggleWishlist={handleToggleWishlist}
+            onSelectProperty={(p) => setSelectedProperty(p)}
+            onOpenListProperty={() => setShowListPropertyModal(true)}
+          />
+        )}
+
+        {currentView === 'construction' && (
+          <ConstructionPage
+            onAddLead={handleAddLead}
           />
         )}
 

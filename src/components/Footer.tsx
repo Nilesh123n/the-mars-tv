@@ -103,6 +103,24 @@ export default function Footer({ onNavigate }: FooterProps) {
               </li>
               <li>
                 <button
+                  onClick={() => onNavigate('rent')}
+                  className="bg-white text-[#D61F26] hover:bg-gray-100 px-3 py-1.5 rounded-lg text-[13px] font-bold flex items-center gap-2 shadow-sm transition-all w-full text-left"
+                >
+                  <span className="w-1.5 h-1.5 bg-[#D61F26] rounded-full" />
+                  Rent & Lease Properties
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => onNavigate('construction')}
+                  className="bg-white text-[#D61F26] hover:bg-gray-100 px-3 py-1.5 rounded-lg text-[13px] font-bold flex items-center gap-2 shadow-sm transition-all w-full text-left"
+                >
+                  <span className="w-1.5 h-1.5 bg-[#D61F26] rounded-full" />
+                  Construction & Interior
+                </button>
+              </li>
+              <li>
+                <button
                   onClick={() => onNavigate('news')}
                   className="bg-white text-[#D61F26] hover:bg-gray-100 px-3 py-1.5 rounded-lg text-[13px] font-bold flex items-center gap-2 shadow-sm transition-all w-full text-left"
                 >
