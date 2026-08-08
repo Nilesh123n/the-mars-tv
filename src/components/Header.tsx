@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Home, Building2, Building, Newspaper, Megaphone, Phone, Heart, Menu, X, PlusCircle, Calculator, KeyRound, HardHat } from 'lucide-react';
+import { Home, Building2, Building, Newspaper, Megaphone, Phone, Heart, Menu, X, Calculator, KeyRound, HardHat } from 'lucide-react';
 
 interface HeaderProps {
   currentView: string;
   onNavigate: (view: string) => void;
   wishlistCount: number;
-  onOpenListProperty: () => void;
+  onOpenListProperty?: () => void;
   onOpenEMICalculator: () => void;
 }
 
@@ -40,7 +40,7 @@ export default function Header({
 
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${headerBg}`}>
-      <div className="max-w-[1320px] mx-auto px-4 lg:px-6">
+      <div className="max-w-[1400px] mx-auto px-3 sm:px-6">
         <div className="flex items-center justify-between h-[72px]">
           {/* Logo */}
           <button
@@ -64,7 +64,7 @@ export default function Header({
           </button>
 
           {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center gap-1.5">
+          <nav className="hidden lg:flex items-center gap-0.5 xl:gap-1.5">
             {navLinks.map((link) => {
               const active = currentView === link.id;
               return (
@@ -72,12 +72,12 @@ export default function Header({
                   key={link.id}
                   onClick={() => onNavigate(link.id)}
                   className={`
-                    px-3.5 py-2 text-[14px] font-semibold transition-all duration-200 cursor-pointer rounded-xl flex items-center gap-1.5 text-white hover:bg-white/15
+                    px-2 xl:px-3 py-1.5 xl:py-2 text-[12.5px] xl:text-[13.5px] font-semibold transition-all duration-200 cursor-pointer rounded-xl flex items-center gap-1 xl:gap-1.5 text-white hover:bg-white/15 whitespace-nowrap flex-shrink-0
                     ${active ? 'bg-white/20 font-extrabold text-white shadow-sm ring-1 ring-white/40' : 'opacity-90 hover:opacity-100'}
                   `}
                   style={{ fontFamily: 'Inter, sans-serif' }}
                 >
-                  <link.icon className="w-4 h-4 text-white" />
+                  <link.icon className="w-3.5 h-3.5 xl:w-4 xl:h-4 text-white flex-shrink-0" />
                   <span>{link.label}</span>
                 </button>
               );
@@ -85,39 +85,29 @@ export default function Header({
           </nav>
 
           {/* Right Action Controls */}
-          <div className="hidden lg:flex items-center gap-3">
+          <div className="hidden lg:flex items-center gap-1.5 xl:gap-2.5 flex-shrink-0">
             {/* EMI Calculator Tool */}
             <button
               onClick={onOpenEMICalculator}
-              className="text-white hover:bg-white/15 px-3.5 py-2 rounded-xl text-[13px] font-semibold transition-all flex items-center gap-1.5 border border-white/30 cursor-pointer"
+              className="text-white hover:bg-white/15 px-2.5 xl:px-3 py-1.5 xl:py-2 rounded-xl text-[12px] xl:text-[13px] font-semibold transition-all flex items-center gap-1 xl:gap-1.5 border border-white/30 cursor-pointer whitespace-nowrap"
               title="Calculate Home Loan EMI"
             >
-              <Calculator className="w-4.5 h-4.5 text-white" />
+              <Calculator className="w-4 h-4 xl:w-4.5 xl:h-4.5 text-white flex-shrink-0" />
               <span>EMI Calc</span>
             </button>
 
             {/* Wishlist Button */}
             <button
               onClick={() => onNavigate('wishlist')}
-              className="relative text-white hover:bg-white/15 p-2.5 rounded-xl transition-all flex items-center justify-center border border-white/30 cursor-pointer"
+              className="relative text-white hover:bg-white/15 p-2 xl:p-2.5 rounded-xl transition-all flex items-center justify-center border border-white/30 cursor-pointer flex-shrink-0"
               title="Saved Wishlist"
             >
-              <Heart className={`w-5 h-5 ${wishlistCount > 0 ? 'fill-white text-white' : 'text-white'}`} />
+              <Heart className={`w-4.5 h-4.5 xl:w-5 xl:h-5 ${wishlistCount > 0 ? 'fill-white text-white' : 'text-white'}`} />
               {wishlistCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 bg-white text-[#D61F26] text-[10px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow-md">
+                <span className="absolute -top-1.5 -right-1.5 bg-white text-[#D61F26] text-[10px] font-extrabold w-4.5 h-4.5 xl:w-5 xl:h-5 rounded-full flex items-center justify-center shadow-md">
                   {wishlistCount}
                 </span>
               )}
-            </button>
-
-            {/* List Property Action Button */}
-            <button
-              onClick={onOpenListProperty}
-              className="border-2 border-white text-white hover:bg-white hover:text-[#D61F26] text-[13px] font-bold px-4 py-2 rounded-[14px] transition-all duration-200 shadow-sm flex items-center gap-2 cursor-pointer active:scale-95"
-              style={{ fontFamily: 'Inter, sans-serif' }}
-            >
-              <PlusCircle className="w-4.5 h-4.5" />
-              <span>List Property</span>
             </button>
           </div>
 
@@ -166,13 +156,6 @@ export default function Header({
             >
               <Calculator className="w-4 h-4 text-white" />
               Calculate EMI
-            </button>
-            <button
-              onClick={() => { onOpenListProperty(); setMobileOpen(false); }}
-              className="w-full text-center py-3 border-2 border-white text-white hover:bg-white hover:text-[#D61F26] rounded-[12px] text-[14px] font-bold flex items-center justify-center gap-2 transition-all"
-            >
-              <PlusCircle className="w-5 h-5" />
-              List Property Free
             </button>
           </div>
         </div>
