@@ -64,6 +64,7 @@ export interface NewsItem {
   excerpt: string;
   content: string;
   category: string;
+  region?: 'India' | 'International';
   image: string;
   author: string;
   publishedAt: string;

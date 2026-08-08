@@ -10,9 +10,10 @@ interface LatestNewsProps {
 
 const categories = [
   { id: 'All', label: 'All Insights', icon: Sparkles },
+  { id: 'India News', label: 'India News', icon: Newspaper },
+  { id: 'International News', label: 'International News', icon: Newspaper },
   { id: 'Market Trends', label: 'Market Trends', icon: TrendingUp },
   { id: 'Policy Update', label: 'Policy Updates', icon: FileText },
-  { id: 'Technology', label: 'Technology', icon: Cpu },
 ];
 
 export default function LatestNews({
@@ -102,8 +103,21 @@ export default function LatestNews({
                     alt={item.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
-                  <div className="absolute top-3 left-3 bg-[#D61F26] text-white text-[10.5px] font-extrabold px-3 py-1 rounded-md uppercase tracking-wider shadow-md">
-                    {item.category}
+                  <div className="absolute top-3 left-3 flex flex-wrap items-center gap-1.5 z-10">
+                    <span
+                      className={`text-white text-[10.5px] font-extrabold px-3 py-1 rounded-md uppercase tracking-wider shadow-md ${
+                        item.region === 'International' || item.category === 'International News'
+                          ? 'bg-blue-600'
+                          : 'bg-[#D61F26]'
+                      }`}
+                    >
+                      {item.region === 'International' || item.category === 'International News' ? '🌐 International' : '🇮🇳 India'}
+                    </span>
+                  </div>
+                  <div className="absolute bottom-3 left-3 z-10">
+                    <span className="bg-black/75 backdrop-blur-md text-white text-[10px] font-bold px-2.5 py-1 rounded-md tracking-wider border border-white/20">
+                      {item.category}
+                    </span>
                   </div>
                 </div>
 

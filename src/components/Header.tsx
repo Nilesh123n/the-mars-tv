@@ -11,11 +11,11 @@ interface HeaderProps {
 
 const navLinks = [
   { id: 'home', label: 'Home', icon: Home },
+  { id: 'news', label: 'News', icon: Newspaper },
   { id: 'residential', label: 'Residential', icon: Building },
   { id: 'commercial', label: 'Commercial', icon: Building2 },
-  { id: 'rent', label: 'Rent', icon: KeyRound },
+  { id: 'rent', label: 'Rental', icon: KeyRound },
   { id: 'construction', label: 'Construction', icon: HardHat },
-  { id: 'news', label: 'News', icon: Newspaper },
   { id: 'pr-services', label: 'PR Services', icon: Megaphone },
   { id: 'contact', label: 'Contact Us', icon: Phone },
 ];
