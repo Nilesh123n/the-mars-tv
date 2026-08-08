@@ -115,3 +115,29 @@ export interface Lead {
   propertyTitle?: string;
   createdAt: string;
 }
+
+export interface ConstructionPackage {
+  id: string;
+  name: string;
+  ratePerSqFt: number;
+  rateLabel: string;
+  badge?: string;
+  description: string;
+  features: string[];
+  isPopular?: boolean;
+}
+
+export interface SiteSettings {
+  siteName: string;
+  tagline: string;
+  heroHeadline: string;
+  heroSubheadline: string;
+  phonePrimary: string;
+  phoneSecondary: string;
+  emailContact: string;
+  whatsappNumber: string;
+  officeAddress: string;
+  reraRegistrationNo: string;
+  aboutText: string;
+  activePromotionalBanner?: string;
+}

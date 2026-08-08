@@ -976,3 +976,69 @@ export const initialLeads: Lead[] = [
     createdAt: '2026-07-27T15:10:00Z',
   }
 ];
+
+export const initialConstructionPackages: ConstructionPackage[] = [
+  {
+    id: 'pkg-basic',
+    name: 'Basic Standard Construction',
+    ratePerSqFt: 1450,
+    rateLabel: '₹1,450 / sq.ft',
+    description: 'High-quality structural steel, Grade-A cement, standard vitrified flooring tiles, and branded bathroom fittings.',
+    features: [
+      'Structural Design & Approval',
+      'Fe550 TMT Steel Bars',
+      'Ultratech/Ambuja Cement',
+      '2x2 ft Vitrified Floor Tiles',
+      'Cera/Jaguar CP Fittings',
+      'Concealed Anchor Electrical Wiring'
+    ]
+  },
+  {
+    id: 'pkg-[#D61F26]',
+    name: 'Premium Deluxe Package',
+    ratePerSqFt: 1850,
+    rateLabel: '₹1,850 / sq.ft',
+    badge: 'MOST POPULAR',
+    isPopular: true,
+    description: 'Italian marble look flooring, modular kitchen with chimney, teak wood doors, and false ceiling in living room.',
+    features: [
+      'Architectural 3D Front Elevation',
+      'Large Format GVT Tiles',
+      'Granite Kitchen Countertop',
+      'Teak Wood Main Door Frame',
+      'Kohlera/Jaguar Premium Fittings',
+      'False Ceiling in Living & Dining',
+      'Anti-Termite Treatment Guarantee'
+    ]
+  },
+  {
+    id: 'pkg-luxury',
+    name: 'Ultra Luxury Villa Finish',
+    ratePerSqFt: 2450,
+    rateLabel: '₹2,450 / sq.ft',
+    description: 'Bespoke architectural layout, imported Italian marble, automated smart home wiring, UPVC windows, and private terrace landscaping.',
+    features: [
+      'Full Architectural & Interior 3D Walkthrough',
+      'Imported Italian Marble Flooring',
+      'Fully Furnished Modular Kitchen',
+      'Smart Home Automation Cabling',
+      'Soundproof UPVC Windows',
+      'Solar Water Heater & Underground Sump',
+      '5-Year Full Structure Warranty'
+    ]
+  }
+];
+
+export const initialSiteSettings: SiteSettings = {
+  siteName: 'The Mars TV',
+  tagline: 'Real Estate & Media Network',
+  heroHeadline: 'Discover Verified Residential & Commercial Properties',
+  heroSubheadline: 'Explore 100% RERA registered homes, luxury villas, office spaces, and land corridors in Indore & Central India.',
+  phonePrimary: '+91 98260 00000',
+  phoneSecondary: '+91 731 4000000',
+  emailContact: 'info-[#D61F26]tv.com',
+  whatsappNumber: '+91 98260 00000',
+  officeAddress: '101, Business Square, AB Road, Vijay Nagar, Indore, MP - 452010',
+  reraRegistrationNo: 'RERA/MP/IND/2026/00821',
+  aboutText: 'The Mars TV is Central India\'s premier property portal and real estate media channel. We bridge developers, homebuyers, commercial investors, and press channels with verified listings, market news, and end-to-end PR solutions.'
+};

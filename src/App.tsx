@@ -28,7 +28,7 @@ import ListPropertyModal from './components/ListPropertyModal';
 import NewsDetailModal from './components/NewsDetailModal';
 import Toast from './components/Toast';
 
-// Mock Data
+// Mock Data Defaults
 import {
   initialProperties,
   initialProjects,
@@ -37,9 +37,12 @@ import {
   initialBrandPartners,
   initialTestimonials,
   initialLeads,
+  initialConstructionPackages,
+  initialSiteSettings,
 } from './data/mockData';
 
-import { Property, Project, NewsItem, PRServiceItem, Lead, LeadStatus } from './types';
+import { DataService } from './lib/dataService';
+import { Property, Project, NewsItem, PRServiceItem, Lead, ConstructionPackage, SiteSettings } from './types';
 
 export default function App() {
   // Navigation View with Hash check
@@ -50,49 +53,54 @@ export default function App() {
     return 'home';
   });
 
-  // State Collections with LocalStorage Persistence
-  const [properties, setProperties] = useState<Property[]>(() => {
-    const saved = localStorage.getItem('pr_properties');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* fallback */ }
-    }
-    return initialProperties;
-  });
-
+  // State Collections with Fast DataService Caching
+  const [properties, setProperties] = useState<Property[]>(initialProperties);
   const [projects, setProjects] = useState<Project[]>(initialProjects);
-
-  const [newsItems, setNewsItems] = useState<NewsItem[]>(() => {
-    const saved = localStorage.getItem('pr_news');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* fallback */ }
-    }
-    return initialNews;
-  });
-
-  const [prServices, setPRServices] = useState<PRServiceItem[]>(() => {
-    const saved = localStorage.getItem('pr_services');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* fallback */ }
-    }
-    return initialPRServices;
-  });
+  const [newsItems, setNewsItems] = useState<NewsItem[]>(initialNews);
+  const [prServices, setPRServices] = useState<PRServiceItem[]>(initialPRServices);
+  const [leads, setLeads] = useState<Lead[]>(initialLeads);
+  const [constructionPackages, setConstructionPackages] = useState<ConstructionPackage[]>(initialConstructionPackages);
+  const [siteSettings, setSiteSettings] = useState<SiteSettings>(initialSiteSettings);
 
   const [brandPartners] = useState(initialBrandPartners);
   const [testimonials] = useState(initialTestimonials);
-  const [leads, setLeads] = useState<Lead[]>(initialLeads);
 
-  // Sync to localStorage
+  // Load Initial Data from Cache / Supabase ONCE on Mount (No Loops, No Egress Spam)
   useEffect(() => {
-    localStorage.setItem('pr_properties', JSON.stringify(properties));
-  }, [properties]);
+    let isMounted = true;
 
-  useEffect(() => {
-    localStorage.setItem('pr_news', JSON.stringify(newsItems));
-  }, [newsItems]);
+    async function loadInitialData() {
+      try {
+        const [pData, nData, prData, lData, pkgData, settingsData, projData] = await Promise.all([
+          DataService.getProperties(),
+          DataService.getNews(),
+          DataService.getPRServices(),
+          DataService.getLeads(),
+          DataService.getConstructionPackages(),
+          DataService.getSiteSettings(),
+          DataService.getProjects(),
+        ]);
 
-  useEffect(() => {
-    localStorage.setItem('pr_services', JSON.stringify(prServices));
-  }, [prServices]);
+        if (isMounted) {
+          if (pData?.length) setProperties(pData);
+          if (nData?.length) setNewsItems(nData);
+          if (prData?.length) setPRServices(prData);
+          if (lData?.length) setLeads(lData);
+          if (pkgData?.length) setConstructionPackages(pkgData);
+          if (settingsData) setSiteSettings(settingsData);
+          if (projData?.length) setProjects(projData);
+        }
+      } catch (err) {
+        console.warn('Initial data load warning:', err);
+      }
+    }
+
+    loadInitialData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Hash Navigation Sync
   useEffect(() => {
@@ -109,12 +117,14 @@ export default function App() {
 
   // Reset to original default data
   const handleResetDefaultData = () => {
-    localStorage.removeItem('pr_properties');
-    localStorage.removeItem('pr_news');
-    localStorage.removeItem('pr_services');
+    DataService.resetAllLocalCache();
     setProperties(initialProperties);
     setNewsItems(initialNews);
     setPRServices(initialPRServices);
+    setLeads(initialLeads);
+    setConstructionPackages(initialConstructionPackages);
+    setSiteSettings(initialSiteSettings);
+    setProjects(initialProjects);
     showToast('All content reset to original defaults.');
   };
 
@@ -149,7 +159,7 @@ export default function App() {
   };
 
   // Lead Submission
-  const handleAddLead = (leadData: { name: string; phone: string; email?: string; message?: string; propertyTitle?: string; leadType?: string }) => {
+  const handleAddLead = async (leadData: { name: string; phone: string; email?: string; message?: string; propertyTitle?: string; leadType?: string }) => {
     const newLead: Lead = {
       id: `lead-${Date.now()}`,
       name: leadData.name,
@@ -163,87 +173,23 @@ export default function App() {
       createdAt: new Date().toISOString(),
     };
 
-    setLeads((prev) => [newLead, ...prev]);
+    const updated = await DataService.saveLead(newLead);
+    setLeads(updated);
     showToast('Inquiry submitted! Our representative will call you shortly.');
   };
 
   // Property Actions (Admin / User)
-  const handleAddProperty = (newProp: Partial<Property>) => {
+  const handleAddProperty = async (newProp: Partial<Property>) => {
     const fullProp = newProp as Property;
     fullProp.id = `prop-${Date.now()}`;
-    setProperties((prev) => [fullProp, ...prev]);
+    const updated = await DataService.saveProperty(fullProp);
+    setProperties(updated);
     showToast(`Property "${fullProp.title}" published successfully!`);
   };
 
-  const handleToggleSponsored = (id: string) => {
-    setProperties((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, isSponsored: !p.isSponsored } : p))
-    );
-    showToast('Sponsored status updated.');
-  };
-
-  const handleToggleFeatured = (id: string) => {
-    setProperties((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, isFeatured: !p.isFeatured } : p))
-    );
-    showToast('Featured placement updated.');
-  };
-
-  const handleDeleteProperty = (id: string) => {
-    setProperties((prev) => prev.filter((p) => p.id !== id));
-    showToast('Property removed from database.');
-  };
-
-  // Lead Status Update
-  const handleUpdateLeadStatus = (leadId: string, status: LeadStatus) => {
-    setLeads((prev) =>
-      prev.map((l) => (l.id === leadId ? { ...l, status } : l))
-    );
-    showToast(`Lead status updated to ${status}`);
-  };
-
-  // News Actions
-  const handleToggleNewsStatus = (newsId: string) => {
-    setNewsItems((prev) =>
-      prev.map((n) =>
-        n.id === newsId
-          ? { ...n, status: n.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED' }
-          : n
-      )
-    );
-    showToast('Article publish status updated.');
-  };
-
-  const handleDeleteNews = (newsId: string) => {
-    setNewsItems((prev) => prev.filter((n) => n.id !== newsId));
-    showToast('Article deleted.');
-  };
-
-  const handleAddNews = (item: Partial<NewsItem>) => {
-    const fullItem = item as NewsItem;
-    fullItem.id = `news-${Date.now()}`;
-    setNewsItems((prev) => [fullItem, ...prev]);
-    showToast('Article published to News Hub.');
-  };
-
-  // Project Actions
-  const handleDeleteProject = (projectId: string) => {
-    setProjects((prev) => prev.filter((p) => p.id !== projectId));
-    showToast('Project deleted.');
-  };
-
-  const handleAddProject = (project: Partial<Project>) => {
-    const fullProj = project as Project;
-    fullProj.id = `proj-${Date.now()}`;
-    setProjects((prev) => [fullProj, ...prev]);
-    showToast('Project added to portfolio.');
-  };
-
-  // Client Portal Views
   return (
-    <div className="min-h-screen bg-white flex flex-col justify-between selection:bg-[#D61F26] selection:text-white">
-      
-      {/* Navigation Header */}
+    <div className="min-h-screen bg-[#F8F9FA] text-[#111111] font-sans antialiased selection:bg-[#D61F26] selection:text-white flex flex-col justify-between">
+      {/* Header Navigation Bar */}
       <Header
         currentView={currentView}
         onNavigate={(view) => {
@@ -252,40 +198,21 @@ export default function App() {
         }}
         wishlistCount={wishlist.length}
         onOpenListProperty={() => setShowListPropertyModal(true)}
-        onOpenEMICalculator={() => {
-          setEmiAmount(12500000);
-          setShowEMICalculator(true);
-        }}
+        onOpenEMICalculator={() => setShowEMICalculator(true)}
       />
 
-      {/* Main Content Router */}
-      <main className="flex-1">
+      <main className="flex-grow pt-[72px]">
         {currentView === 'home' && (
           <>
-            <Hero
-              onSearch={(criteria) => {
-                if (criteria.propertyCategory === 'Commercial') {
-                  setCurrentView('commercial');
-                } else {
-                  setCurrentView('residential');
-                }
-                const categoryText = criteria.propertyCategory ? ` (${criteria.propertyCategory})` : '';
-                showToast(`Filtered properties for ${criteria.location || criteria.tab}${categoryText}`);
-              }}
-            />
-
-            <LatestNews
-              newsItems={newsItems}
-              onSelectNews={(news) => setSelectedNews(news)}
-              onViewAllNews={() => setCurrentView('news')}
-            />
+            <Hero onSearch={() => setCurrentView('residential')} />
 
             <SponsoredProperties
-              properties={properties}
-              wishlist={wishlist}
-              onToggleWishlist={handleToggleWishlist}
+              properties={properties.filter((p) => p.isSponsored)}
               onSelectProperty={(p) => setSelectedProperty(p)}
-              onViewAll={() => setCurrentView('residential')}
+              onOpenEMICalculator={(amt) => {
+                setEmiAmount(amt);
+                setShowEMICalculator(true);
+              }}
             />
 
             <FeaturedProperties
@@ -324,6 +251,12 @@ export default function App() {
                 });
               }}
               onViewAllProjects={() => setCurrentView('residential')}
+            />
+
+            <LatestNews
+              newsItems={newsItems}
+              onSelectNews={(item) => setSelectedNews(item)}
+              onViewAllNews={() => setCurrentView('news')}
             />
 
             <PRServices
@@ -418,6 +351,11 @@ export default function App() {
             prServices={prServices}
             setPRServices={setPRServices}
             leads={leads}
+            setLeads={setLeads}
+            constructionPackages={constructionPackages}
+            setConstructionPackages={setConstructionPackages}
+            siteSettings={siteSettings}
+            setSiteSettings={setSiteSettings}
             onNavigateHome={() => {
               window.location.hash = '';
               setCurrentView('home');
