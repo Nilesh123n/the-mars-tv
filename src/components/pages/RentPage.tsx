@@ -22,22 +22,22 @@ import {
 
 interface RentPageProps {
   properties: Property[];
-  wishlist: string[];
-  onToggleWishlist: (id: string) => void;
-  onSelectProperty: (property: Property) => void;
+  wishlist?: string[];
+  onToggleWishlist?: (id: string) => void;
+  onSelectProperty?: (property: Property) => void;
   onOpenListProperty?: () => void;
 }
 
 export default function RentPage({
-  properties,
-  wishlist,
-  onToggleWishlist,
-  onSelectProperty,
-  onOpenListProperty
+  properties = [],
+  wishlist = [],
+  onToggleWishlist = () => {},
+  onSelectProperty = () => {},
+  onOpenListProperty = () => {}
 }: RentPageProps) {
   // Filter only RENT properties OR properties explicitly flagged for rent
   const rentalProperties = properties.filter(
-    (p) => p.listingType === 'RENT' || p.priceLabel.toLowerCase().includes('/ mo') || p.priceLabel.toLowerCase().includes('mo')
+    (p) => p.listingType === 'RENT' || (p.priceLabel || '').toLowerCase().includes('/ mo') || (p.priceLabel || '').toLowerCase().includes('mo')
   );
 
   const [search, setSearch] = useState('');
@@ -53,10 +53,10 @@ export default function RentPage({
     .filter((p) => {
       // Search
       const matchesSearch =
-        p.title.toLowerCase().includes(search.toLowerCase()) ||
-        p.location.toLowerCase().includes(search.toLowerCase()) ||
-        p.city.toLowerCase().includes(search.toLowerCase()) ||
-        p.propertyType.toLowerCase().includes(search.toLowerCase());
+        (p.title || '').toLowerCase().includes(search.toLowerCase()) ||
+        (p.location || '').toLowerCase().includes(search.toLowerCase()) ||
+        (p.city || '').toLowerCase().includes(search.toLowerCase()) ||
+        (p.propertyType || '').toLowerCase().includes(search.toLowerCase());
 
       // Category tab
       let matchesCategory = true;
@@ -272,7 +272,7 @@ export default function RentPage({
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 lg:gap-6">
             {filtered.map((property) => {
-              const isSaved = wishlist.includes(property.id);
+              const isSaved = wishlist?.includes(property.id) ?? false;
               const primaryImg = property.images.find((i) => i.isPrimary)?.url || property.images[0]?.url;
 
               return (

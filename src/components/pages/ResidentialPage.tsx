@@ -4,16 +4,16 @@ import { Heart, MapPin, BedDouble, Car, Maximize2, Search, SlidersHorizontal, Sh
 
 interface ResidentialPageProps {
   properties: Property[];
-  wishlist: string[];
-  onToggleWishlist: (id: string) => void;
-  onSelectProperty: (property: Property) => void;
+  wishlist?: string[];
+  onToggleWishlist?: (id: string) => void;
+  onSelectProperty?: (property: Property) => void;
 }
 
 export default function ResidentialPage({
-  properties,
-  wishlist,
-  onToggleWishlist,
-  onSelectProperty,
+  properties = [],
+  wishlist = [],
+  onToggleWishlist = () => {},
+  onSelectProperty = () => {},
 }: ResidentialPageProps) {
   const residentialProperties = properties.filter((p) => p.listingType !== 'COMMERCIAL');
 
@@ -23,7 +23,7 @@ export default function ResidentialPage({
   const [sortBy, setSortBy] = useState<'NEWEST' | 'PRICE_LOW' | 'PRICE_HIGH'>('NEWEST');
 
   const filtered = residentialProperties.filter((p) => {
-    const matchesSearch = p.title.toLowerCase().includes(search.toLowerCase()) || p.location.toLowerCase().includes(search.toLowerCase()) || p.city.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = (p.title || '').toLowerCase().includes(search.toLowerCase()) || (p.location || '').toLowerCase().includes(search.toLowerCase()) || (p.city || '').toLowerCase().includes(search.toLowerCase());
     const matchesBhk = bhkFilter === 'ALL' || p.bedrooms === bhkFilter;
     const matchesType = typeFilter === 'ALL' || p.propertyType === typeFilter;
     return matchesSearch && matchesBhk && matchesType;
@@ -132,7 +132,7 @@ export default function ResidentialPage({
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
             {filtered.map((property) => {
-              const isSaved = wishlist.includes(property.id);
+              const isSaved = wishlist?.includes(property.id) ?? false;
               const primaryImg = property.images.find((i) => i.isPrimary)?.url || property.images[0]?.url;
 
               return (

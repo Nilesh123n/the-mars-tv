@@ -1,4 +1,4 @@
-import { Property, Project, NewsItem, PRServiceItem, BrandPartner, Testimonial, Lead } from '../types';
+import { Property, Project, NewsItem, PRServiceItem, BrandPartner, Testimonial, Lead, ConstructionPackage, SiteSettings } from '../types';
 
 export const initialProperties: Property[] = [
   {

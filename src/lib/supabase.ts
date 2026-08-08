@@ -7,8 +7,9 @@ export function getSupabaseCredentials() {
   const customUrl = localStorage.getItem('supabase_url');
   const customKey = localStorage.getItem('supabase_anon_key');
 
-  const url = customUrl || import.meta.env.VITE_SUPABASE_URL || '';
-  const key = customKey || import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+  const env = (import.meta as any).env || {};
+  const url = customUrl || env.VITE_SUPABASE_URL || '';
+  const key = customKey || env.VITE_SUPABASE_ANON_KEY || '';
 
   return { url, key };
 }

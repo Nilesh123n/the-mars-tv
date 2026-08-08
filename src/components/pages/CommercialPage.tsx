@@ -4,16 +4,16 @@ import { Heart, MapPin, Building2, Maximize2, Search, SlidersHorizontal, ShieldC
 
 interface CommercialPageProps {
   properties: Property[];
-  wishlist: string[];
-  onToggleWishlist: (id: string) => void;
-  onSelectProperty: (property: Property) => void;
+  wishlist?: string[];
+  onToggleWishlist?: (id: string) => void;
+  onSelectProperty?: (property: Property) => void;
 }
 
 export default function CommercialPage({
-  properties,
-  wishlist,
-  onToggleWishlist,
-  onSelectProperty,
+  properties = [],
+  wishlist = [],
+  onToggleWishlist = () => {},
+  onSelectProperty = () => {},
 }: CommercialPageProps) {
   const commercialProperties = properties.filter((p) => p.listingType === 'COMMERCIAL' || p.propertyType === 'OFFICE' || p.propertyType === 'RETAIL' || p.propertyType === 'WAREHOUSE');
 
@@ -21,7 +21,7 @@ export default function CommercialPage({
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'OFFICE' | 'RETAIL' | 'WAREHOUSE'>('ALL');
 
   const filtered = commercialProperties.filter((p) => {
-    const matchesSearch = p.title.toLowerCase().includes(search.toLowerCase()) || p.location.toLowerCase().includes(search.toLowerCase()) || p.city.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = (p.title || '').toLowerCase().includes(search.toLowerCase()) || (p.location || '').toLowerCase().includes(search.toLowerCase()) || (p.city || '').toLowerCase().includes(search.toLowerCase());
     const matchesType = typeFilter === 'ALL' || p.propertyType === typeFilter;
     return matchesSearch && matchesType;
   });
@@ -96,7 +96,7 @@ export default function CommercialPage({
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
             {filtered.map((property) => {
-              const isSaved = wishlist.includes(property.id);
+              const isSaved = wishlist?.includes(property.id) ?? false;
               const primaryImg = property.images.find((i) => i.isPrimary)?.url || property.images[0]?.url;
 
               return (

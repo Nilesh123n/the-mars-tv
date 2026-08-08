@@ -206,13 +206,18 @@ export default function App() {
           <>
             <Hero onSearch={() => setCurrentView('residential')} />
 
+            <LatestNews
+              newsItems={newsItems}
+              onSelectNews={(item) => setSelectedNews(item)}
+              onViewAllNews={() => setCurrentView('news')}
+            />
+
             <SponsoredProperties
               properties={properties.filter((p) => p.isSponsored)}
+              wishlist={wishlist}
+              onToggleWishlist={handleToggleWishlist}
               onSelectProperty={(p) => setSelectedProperty(p)}
-              onOpenEMICalculator={(amt) => {
-                setEmiAmount(amt);
-                setShowEMICalculator(true);
-              }}
+              onViewAll={() => setCurrentView('residential')}
             />
 
             <FeaturedProperties
@@ -251,12 +256,6 @@ export default function App() {
                 });
               }}
               onViewAllProjects={() => setCurrentView('residential')}
-            />
-
-            <LatestNews
-              newsItems={newsItems}
-              onSelectNews={(item) => setSelectedNews(item)}
-              onViewAllNews={() => setCurrentView('news')}
             />
 
             <PRServices

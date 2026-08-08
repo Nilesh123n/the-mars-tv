@@ -26,8 +26,8 @@ export default function LatestNews({
   const filteredItems = selectedCategory === 'All'
     ? newsItems
     : newsItems.filter((n) =>
-        n.category.toLowerCase().includes(selectedCategory.toLowerCase()) ||
-        (selectedCategory === 'Policy Update' && n.category.toLowerCase().includes('policy'))
+        (n.category || '').toLowerCase().includes(selectedCategory.toLowerCase()) ||
+        (selectedCategory === 'Policy Update' && (n.category || '').toLowerCase().includes('policy'))
       );
 
   // Take exactly 2 items for every category tab

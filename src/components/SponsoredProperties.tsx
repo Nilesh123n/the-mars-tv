@@ -4,18 +4,18 @@ import { Heart, BedDouble, Car, Maximize2, MapPin, ChevronLeft, ChevronRight, Sh
 
 interface SponsoredPropertiesProps {
   properties: Property[];
-  wishlist: string[];
-  onToggleWishlist: (id: string) => void;
-  onSelectProperty: (property: Property) => void;
-  onViewAll: () => void;
+  wishlist?: string[];
+  onToggleWishlist?: (id: string) => void;
+  onSelectProperty?: (property: Property) => void;
+  onViewAll?: () => void;
 }
 
 export default function SponsoredProperties({
-  properties,
-  wishlist,
-  onToggleWishlist,
-  onSelectProperty,
-  onViewAll,
+  properties = [],
+  wishlist = [],
+  onToggleWishlist = () => {},
+  onSelectProperty = () => {},
+  onViewAll = () => {},
 }: SponsoredPropertiesProps) {
   const sponsoredList = properties.filter((p) => p.isSponsored);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -77,7 +77,7 @@ export default function SponsoredProperties({
           {sponsoredList.slice(currentIndex, currentIndex + 4).concat(
             sponsoredList.slice(0, Math.max(0, 4 - (sponsoredList.length - currentIndex)))
           ).slice(0, 4).map((property) => {
-            const isSaved = wishlist.includes(property.id);
+            const isSaved = wishlist?.includes(property.id) ?? false;
             const primaryImg = property.images.find(img => img.isPrimary)?.url || property.images[0]?.url;
 
             return (

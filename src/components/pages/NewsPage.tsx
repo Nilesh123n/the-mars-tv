@@ -40,7 +40,7 @@ export default function NewsPage({ newsItems, onSelectNews }: NewsPageProps) {
 
   const filtered = newsItems.filter((item) => {
     // Determine item region
-    const itemRegion = item.region || (item.category.includes('International') ? 'International' : 'India');
+    const itemRegion = item.region || ((item.category || '').includes('International') ? 'International' : 'India');
 
     // Main Category matching
     let matchesMain = true;
@@ -53,14 +53,14 @@ export default function NewsPage({ newsItems, onSelectNews }: NewsPageProps) {
     // Sub Category matching
     let matchesSub = true;
     if (selectedSubCategory !== 'ALL') {
-      matchesSub = item.category.toLowerCase() === selectedSubCategory.toLowerCase();
+      matchesSub = (item.category || '').toLowerCase() === selectedSubCategory.toLowerCase();
     }
 
     // Search matching
     const matchesSearch =
-      item.title.toLowerCase().includes(search.toLowerCase()) ||
-      item.excerpt.toLowerCase().includes(search.toLowerCase()) ||
-      item.category.toLowerCase().includes(search.toLowerCase());
+      (item.title || '').toLowerCase().includes(search.toLowerCase()) ||
+      (item.excerpt || '').toLowerCase().includes(search.toLowerCase()) ||
+      (item.category || '').toLowerCase().includes(search.toLowerCase());
 
     return matchesMain && matchesSub && matchesSearch;
   });

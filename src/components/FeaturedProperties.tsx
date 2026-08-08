@@ -4,18 +4,18 @@ import { Heart, BedDouble, Car, Maximize2, MapPin, CheckCircle } from 'lucide-re
 
 interface FeaturedPropertiesProps {
   properties: Property[];
-  wishlist: string[];
-  onToggleWishlist: (id: string) => void;
-  onSelectProperty: (property: Property) => void;
-  onViewAll: () => void;
+  wishlist?: string[];
+  onToggleWishlist?: (id: string) => void;
+  onSelectProperty?: (property: Property) => void;
+  onViewAll?: () => void;
 }
 
 export default function FeaturedProperties({
-  properties,
-  wishlist,
-  onToggleWishlist,
-  onSelectProperty,
-  onViewAll,
+  properties = [],
+  wishlist = [],
+  onToggleWishlist = () => {},
+  onSelectProperty = () => {},
+  onViewAll = () => {},
 }: FeaturedPropertiesProps) {
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'APARTMENT' | 'VILLA' | 'COMMERCIAL' | 'PLOT'>('ALL');
 
@@ -72,7 +72,7 @@ export default function FeaturedProperties({
         {/* Grid Cards - 4 columns on desktop & desktop site mode */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
           {filteredProperties.slice(0, 8).map((property) => {
-            const isSaved = wishlist.includes(property.id);
+            const isSaved = wishlist?.includes(property.id) ?? false;
             const primaryImg = property.images.find((img) => img.isPrimary)?.url || property.images[0]?.url;
 
             return (

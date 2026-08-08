@@ -680,9 +680,9 @@ export default function AdminSecretPage({
               {properties
                 .filter(
                   (p) =>
-                    p.title.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-                    p.location.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-                    p.propertyType.toLowerCase().includes(debouncedSearch.toLowerCase())
+                    (p.title || '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                    (p.location || '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                    (p.propertyType || '').toLowerCase().includes(debouncedSearch.toLowerCase())
                 )
                 .map((property) => {
                   const primaryImg =
@@ -788,9 +788,9 @@ export default function AdminSecretPage({
               {newsItems
                 .filter(
                   (n) =>
-                    n.title.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-                    n.category.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-                    n.author.toLowerCase().includes(debouncedSearch.toLowerCase())
+                    (n.title || '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                    (n.category || '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                    (n.author || '').toLowerCase().includes(debouncedSearch.toLowerCase())
                 )
                 .map((item) => (
                   <div
@@ -868,8 +868,8 @@ export default function AdminSecretPage({
               {prServices
                 .filter(
                   (s) =>
-                    s.title.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-                    s.description.toLowerCase().includes(debouncedSearch.toLowerCase())
+                    (s.title || '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                    (s.description || '').toLowerCase().includes(debouncedSearch.toLowerCase())
                 )
                 .map((service) => (
                   <div
