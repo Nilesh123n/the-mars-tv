@@ -1,4 +1,4 @@
-import { useState, FormEvent, ChangeEvent } from 'react';
+import { useState, FormEvent, ChangeEvent, DragEvent, useRef } from 'react';
 import {
   X,
   PlusCircle,
@@ -11,25 +11,14 @@ import {
   Mail,
   User,
   Briefcase,
-  Home,
-  FileText,
-  DollarSign,
-  Calendar,
-  Layers,
-  Sparkles,
-  AlertCircle,
   FileCheck,
   Trash2,
-  Eye,
   Check,
   ArrowRight,
-  Lock,
-  Compass,
-  KeyRound,
-  ShieldAlert
+  Image as ImageIcon,
+  Star,
 } from 'lucide-react';
 import { Property, PropertyType, ListingType, PropertyStatus, UserRole } from '../types';
-import { INDIA_LOCATION_DATA, INTERNATIONAL_LOCATION_DATA } from '../data/locationHierarchy';
 
 interface ListPropertyModalProps {
   onClose: () => void;
@@ -64,7 +53,6 @@ const PRESET_PHOTOS = [
 export default function ListPropertyModal({
   onClose,
   onAddProperty,
-  onNavigateToAdmin,
 }: ListPropertyModalProps) {
   // 1. User Role
   const [userRole, setUserRole] = useState<UserRole>('DEVELOPER');
@@ -108,6 +96,9 @@ export default function ListPropertyModal({
     'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=1200&q=80',
   ]);
   const [customImageUrl, setCustomImageUrl] = useState('');
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([
     'Lift / Elevators',
     '24/7 Security & CCTV',
@@ -118,15 +109,11 @@ export default function ListPropertyModal({
   ]);
   const [description, setDescription] = useState('');
 
-  // 7. Contact Details & OTP Simulation
+  // 7. Contact Details (Direct - OTP removed)
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [agencyName, setAgencyName] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
-  const [isPhoneVerified, setIsPhoneVerified] = useState(false);
-  const [otpError, setOtpError] = useState('');
 
   // Submission State
   const [submittedSubmissionId, setSubmittedSubmissionId] = useState<string | null>(null);
@@ -166,7 +153,67 @@ export default function ListPropertyModal({
     );
   };
 
-  // Toggle Image
+  // Local Device Image Selection & Upload
+  const handleLocalImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    Array.from(files).forEach((file: File) => {
+      if (!file.type.startsWith('image/')) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const result = event.target?.result as string;
+        if (result) {
+          setSelectedImages((prev) => [...prev, result]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+
+    e.target.value = '';
+  };
+
+  // Drag and Drop for Local Images
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDraggingOver(true);
+  };
+
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDraggingOver(false);
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDraggingOver(false);
+    const files = e.dataTransfer.files;
+    if (!files || files.length === 0) return;
+
+    Array.from(files).forEach((file: File) => {
+      if (!file.type.startsWith('image/')) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const result = event.target?.result as string;
+        if (result) {
+          setSelectedImages((prev) => [...prev, result]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // Set Primary Thumbnail
+  const handleSetPrimaryImage = (index: number) => {
+    setSelectedImages((prev) => {
+      if (index === 0) return prev;
+      const item = prev[index];
+      const rest = prev.filter((_, i) => i !== index);
+      return [item, ...rest];
+    });
+  };
+
+  // Add Custom Image URL
   const handleAddCustomImage = () => {
     if (!customImageUrl.trim()) return;
     setSelectedImages((prev) => [...prev, customImageUrl.trim()]);
@@ -185,28 +232,8 @@ export default function ListPropertyModal({
     }
   };
 
-  // Simulate OTP Flow
-  const handleSendOtp = () => {
-    if (!contactPhone || contactPhone.length < 10) {
-      setOtpError('Please enter a valid 10-digit mobile number first.');
-      return;
-    }
-    setOtpError('');
-    setOtpSent(true);
-    setOtpCode('4829'); // Auto simulated hint for effortless verification
-  };
-
-  const handleVerifyOtp = () => {
-    if (otpCode === '4829' || otpCode.length === 4) {
-      setIsPhoneVerified(true);
-      setOtpError('');
-    } else {
-      setOtpError('Invalid OTP code. Please enter 4829 or click Resend.');
-    }
-  };
-
-  // File upload simulation
-  const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
+  // Document Proof Upload
+  const handleProofFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setUploadedProofName(file.name);
@@ -274,7 +301,7 @@ export default function ListPropertyModal({
       contactPhone,
       contactEmail,
       agencyName: agencyName || (userRole === 'OWNER' ? 'Direct Owner' : 'Verified Partner'),
-      isPhoneVerified: isPhoneVerified || true,
+      isPhoneVerified: true,
       images:
         selectedImages.length > 0
           ? selectedImages.map((url, i) => ({ url, alt: title, isPrimary: i === 0 }))
@@ -361,29 +388,18 @@ export default function ListPropertyModal({
                   <span>The Mars TV Verification Protocol</span>
                 </div>
                 <p className="leading-relaxed text-gray-700">
-                  Our compliance desk will verify the RERA registration (<code>{reraNumber || 'Verified ID'}</code>) and ownership documentation within <strong>24–48 hours</strong>. You can inspect this listing in the <strong>Admin Control Portal</strong> under Pending Approvals.
+                  After submission, your listing is routed immediately to the Admin with &quot;Pending Approval&quot; status for RERA &amp; title compliance review.
                 </p>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-                <button
-                  onClick={() => {
-                    onClose();
-                    window.location.hash = '#/admin-secret';
-                    if (onNavigateToAdmin) onNavigateToAdmin();
-                  }}
-                  className="w-full sm:w-auto px-6 py-3 bg-[#111111] hover:bg-black text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-md cursor-pointer transition-all"
-                >
-                  <Lock className="w-4 h-4 text-amber-400" />
-                  <span>View in Admin Portal (`/admin-secret`)</span>
-                </button>
-
+              {/* Action Buttons - Clean single return button without admin shortcut */}
+              <div className="flex items-center justify-center pt-2">
                 <button
                   onClick={onClose}
-                  className="w-full sm:w-auto px-6 py-3 bg-[#D61F26] hover:bg-[#B01920] text-white text-xs font-bold rounded-xl shadow-md cursor-pointer transition-all"
+                  className="w-full sm:w-auto px-8 py-3.5 bg-[#D61F26] hover:bg-[#B01920] text-white text-xs font-bold rounded-xl shadow-md cursor-pointer transition-all flex items-center justify-center gap-2"
                 >
-                  Done & Back to Home
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Done & Back to Home</span>
                 </button>
               </div>
             </div>
@@ -851,7 +867,7 @@ export default function ListPropertyModal({
                     <div className="grid grid-cols-2 gap-2">
                       <select
                         value={possessionStatus}
-                        onChange={(e) => setPossessionStatus(e.target.value as any)}
+                        onChange={(e) => setPossessionStatus(e.target.value as 'READY_TO_MOVE' | 'UNDER_CONSTRUCTION' | 'NEW_LAUNCH')}
                         className="w-full border border-gray-300 rounded-xl px-2 py-2.5 text-[11.5px] font-bold bg-white"
                       >
                         <option value="READY_TO_MOVE">Ready to Move</option>
@@ -939,7 +955,7 @@ export default function ListPropertyModal({
                   <div className="border-2 border-dashed border-gray-300 hover:border-[#D61F26] rounded-2xl p-4 sm:p-5 text-center transition-colors bg-gray-50/60 relative">
                     <input
                       type="file"
-                      onChange={handleFileUpload}
+                      onChange={handleProofFileUpload}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                       accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
                     />
@@ -978,7 +994,7 @@ export default function ListPropertyModal({
                 </div>
               </section>
 
-              {/* SECTION 6: MEDIA & AMENITIES UPLOAD */}
+              {/* SECTION 6: MEDIA & AMENITIES UPLOAD (LOCAL DEVICE UPLOAD FEATURE) */}
               <section className="bg-white p-5 sm:p-6 rounded-2xl border border-gray-200 shadow-sm space-y-5">
                 <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                   <div className="flex items-center gap-2">
@@ -992,51 +1008,139 @@ export default function ListPropertyModal({
                   <span className="text-[11px] font-semibold text-gray-400">Step 6 of 8</span>
                 </div>
 
-                {/* Image Gallery Picker & URL Input */}
+                {/* Local Device Photo Upload Dropzone */}
                 <div className="space-y-3">
-                  <label className="block text-[11.5px] font-bold text-gray-700 uppercase tracking-wider">
-                    Property High-Res Gallery Photos
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[11.5px] font-bold text-gray-700 uppercase tracking-wider">
+                      Property High-Res Gallery Photos <span className="text-[#D61F26]">*</span>
+                    </label>
+                    <span className="text-[11px] font-bold text-gray-500 bg-gray-100 px-2.5 py-0.5 rounded-full">
+                      {selectedImages.length} {selectedImages.length === 1 ? 'Photo' : 'Photos'} Attached
+                    </span>
+                  </div>
 
-                  {/* Selected Images Preview */}
+                  {/* Main Local Device Drag & Drop / Click Upload Box */}
+                  <div
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`border-2 border-dashed rounded-2xl p-6 sm:p-8 text-center transition-all cursor-pointer relative ${
+                      isDraggingOver
+                        ? 'border-[#D61F26] bg-red-50/70 scale-[0.99]'
+                        : 'border-red-300 hover:border-[#D61F26] bg-gradient-to-b from-red-50/30 to-white hover:bg-red-50/40'
+                    }`}
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      onChange={handleLocalImageSelect}
+                      className="hidden"
+                    />
+
+                    <div className="flex flex-col items-center justify-center gap-2.5">
+                      <div className="w-14 h-14 bg-red-100 text-[#D61F26] rounded-2xl flex items-center justify-center shadow-sm">
+                        <Upload className="w-7 h-7" />
+                      </div>
+                      <div>
+                        <span className="text-sm sm:text-base font-extrabold text-gray-900 block">
+                          Upload Property Photos from Local Device
+                        </span>
+                        <p className="text-xs text-gray-600 mt-1 max-w-md mx-auto">
+                          Click to browse files or drag & drop high-resolution photos (JPG, PNG, WebP) directly from your computer or mobile.
+                        </p>
+                      </div>
+                      <div className="mt-1 inline-flex items-center gap-2 px-4 py-2 bg-[#D61F26] text-white text-xs font-bold rounded-xl shadow-xs hover:bg-[#B01920] transition-colors">
+                        <ImageIcon className="w-3.5 h-3.5" />
+                        <span>Select Photos from Device</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Selected Images Gallery Preview with Primary Selector & Delete */}
                   {selectedImages.length > 0 && (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {selectedImages.map((imgUrl, idx) => (
-                        <div key={idx} className="relative group rounded-xl overflow-hidden h-28 border border-gray-200 shadow-sm bg-gray-100">
-                          <img src={imgUrl} alt="Listing preview" className="w-full h-full object-cover" />
-                          {idx === 0 && (
-                            <span className="absolute top-2 left-2 bg-[#D61F26] text-white text-[9px] font-black uppercase px-2 py-0.5 rounded shadow">
-                              Primary Thumbnail
-                            </span>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveImage(idx)}
-                            className="absolute top-2 right-2 bg-black/70 hover:bg-red-600 text-white p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    <div className="space-y-2 pt-2">
+                      <div className="flex items-center justify-between text-xs text-gray-600">
+                        <span className="font-bold">Attached Gallery Preview:</span>
+                        <span className="text-[11px] text-gray-500">First image is used as primary thumbnail</span>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        {selectedImages.map((imgUrl, idx) => (
+                          <div
+                            key={idx}
+                            className="relative group rounded-xl overflow-hidden h-32 border-2 transition-all shadow-xs bg-gray-100 flex flex-col justify-between"
+                            style={{
+                              borderColor: idx === 0 ? '#D61F26' : '#e5e7eb',
+                            }}
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))}
+                            <img
+                              src={imgUrl}
+                              alt={`Listing photo ${idx + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+
+                            {/* Badges & Actions Overlay */}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/40 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-2 flex flex-col justify-between">
+                              <div className="flex items-center justify-between">
+                                {idx === 0 ? (
+                                  <span className="bg-[#D61F26] text-white text-[9px] font-black uppercase px-2 py-0.5 rounded shadow flex items-center gap-1">
+                                    <Star className="w-2.5 h-2.5 fill-current" />
+                                    Primary
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSetPrimaryImage(idx)}
+                                    className="bg-black/70 hover:bg-[#D61F26] text-white text-[9px] font-bold px-2 py-0.5 rounded transition-colors cursor-pointer"
+                                  >
+                                    Set Primary
+                                  </button>
+                                )}
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveImage(idx)}
+                                  className="bg-red-600/90 hover:bg-red-700 text-white p-1 rounded-md transition-colors cursor-pointer ml-auto"
+                                  title="Remove photo"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+
+                              <span className="text-[10px] text-white font-semibold truncate">
+                                Image #{idx + 1}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
 
                   {/* Add Custom Image URL */}
-                  <div className="flex gap-2">
-                    <input
-                      type="url"
-                      value={customImageUrl}
-                      onChange={(e) => setCustomImageUrl(e.target.value)}
-                      placeholder="Paste high-res property photo URL (e.g. https://images.unsplash.com/...)"
-                      className="w-full border border-gray-300 rounded-xl px-3.5 py-2 text-[12.5px] focus:outline-none focus:border-[#D61F26]"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddCustomImage}
-                      className="px-4 py-2 bg-gray-900 hover:bg-black text-white text-xs font-bold rounded-xl whitespace-nowrap cursor-pointer transition-colors"
-                    >
-                      Add Photo
-                    </button>
+                  <div className="pt-2">
+                    <span className="text-[11px] font-bold text-gray-500 uppercase block mb-1.5">
+                      Or attach via web image URL:
+                    </span>
+                    <div className="flex gap-2">
+                      <input
+                        type="url"
+                        value={customImageUrl}
+                        onChange={(e) => setCustomImageUrl(e.target.value)}
+                        placeholder="Paste web image URL (e.g. https://images.unsplash.com/...)"
+                        className="w-full border border-gray-300 rounded-xl px-3.5 py-2 text-[12.5px] focus:outline-none focus:border-[#D61F26]"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddCustomImage}
+                        className="px-4 py-2 bg-gray-900 hover:bg-black text-white text-xs font-bold rounded-xl whitespace-nowrap cursor-pointer transition-colors"
+                      >
+                        Add URL
+                      </button>
+                    </div>
                   </div>
 
                   {/* Preset Quick Select Photos */}
@@ -1116,7 +1220,7 @@ export default function ListPropertyModal({
                 </div>
               </section>
 
-              {/* SECTION 7: CONTACT & VERIFICATION DETAILS */}
+              {/* SECTION 7: CONTACT & OWNERSHIP DETAILS (NO OTP REQUIREMENT) */}
               <section className="bg-white p-5 sm:p-6 rounded-2xl border border-gray-200 shadow-sm space-y-4">
                 <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                   <div className="flex items-center gap-2">
@@ -1124,7 +1228,7 @@ export default function ListPropertyModal({
                       7
                     </span>
                     <h3 className="font-extrabold text-sm sm:text-base text-gray-900 uppercase tracking-wide">
-                      Contact & Ownership Verification
+                      Contact & Ownership Details
                     </h3>
                   </div>
                   <span className="text-[11px] font-semibold text-gray-400">Step 7 of 8</span>
@@ -1167,72 +1271,22 @@ export default function ListPropertyModal({
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Phone with OTP Verification Simulation */}
+                  {/* Phone without OTP Verification */}
                   <div>
                     <label className="block text-[11.5px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                      Phone Number (with OTP Verification) <span className="text-[#D61F26]">*</span>
+                      Contact Phone Number / WhatsApp <span className="text-[#D61F26]">*</span>
                     </label>
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <Phone className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                        <input
-                          type="tel"
-                          required
-                          value={contactPhone}
-                          onChange={(e) => setContactPhone(e.target.value)}
-                          placeholder="+91 98930 12345"
-                          className="w-full border border-gray-300 rounded-xl pl-10 pr-3 py-2.5 text-[13.5px] font-medium focus:outline-none focus:border-[#D61F26]"
-                        />
-                      </div>
-                      {!isPhoneVerified ? (
-                        <button
-                          type="button"
-                          onClick={handleSendOtp}
-                          className="px-3.5 py-2.5 bg-gray-900 hover:bg-black text-white text-xs font-bold rounded-xl whitespace-nowrap cursor-pointer transition-colors"
-                        >
-                          {otpSent ? 'Resend' : 'Send OTP'}
-                        </button>
-                      ) : (
-                        <div className="px-3 py-2 bg-emerald-100 text-emerald-800 text-xs font-black rounded-xl flex items-center gap-1">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                          <span>Verified</span>
-                        </div>
-                      )}
+                    <div className="relative">
+                      <Phone className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="tel"
+                        required
+                        value={contactPhone}
+                        onChange={(e) => setContactPhone(e.target.value)}
+                        placeholder="+91 98930 12345"
+                        className="w-full border border-gray-300 rounded-xl pl-10 pr-3.5 py-2.5 text-[13.5px] font-medium focus:outline-none focus:border-[#D61F26]"
+                      />
                     </div>
-
-                    {/* OTP Entry Simulation */}
-                    {otpSent && !isPhoneVerified && (
-                      <div className="mt-2.5 p-3 bg-red-50/80 border border-red-200 rounded-xl space-y-2">
-                        <div className="flex items-center justify-between text-xs text-gray-700">
-                          <span className="font-bold">Enter 4-Digit Code (Demo Code: 4829):</span>
-                          <button
-                            type="button"
-                            onClick={() => setOtpCode('4829')}
-                            className="text-[11px] text-[#D61F26] font-bold underline cursor-pointer"
-                          >
-                            Auto-Fill 4829
-                          </button>
-                        </div>
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            maxLength={4}
-                            value={otpCode}
-                            onChange={(e) => setOtpCode(e.target.value)}
-                            placeholder="4829"
-                            className="w-32 text-center tracking-widest font-mono text-base font-black border border-red-300 rounded-lg px-2 py-1.5 bg-white focus:outline-none"
-                          />
-                          <button
-                            type="button"
-                            onClick={handleVerifyOtp}
-                            className="px-4 py-1.5 bg-[#D61F26] hover:bg-[#B01920] text-white text-xs font-bold rounded-lg cursor-pointer transition-colors"
-                          >
-                            Verify OTP
-                          </button>
-                        </div>
-                        {otpError && <p className="text-[11px] text-red-600 font-bold">{otpError}</p>}
-                      </div>
-                    )}
                   </div>
 
                   {/* Agency / Company Name */}
@@ -1260,7 +1314,7 @@ export default function ListPropertyModal({
                 </div>
               </section>
 
-              {/* SECTION 8: SUBMISSION WORKFLOW */}
+              {/* SECTION 8: DIRECT-TO-ADMIN VERIFICATION PROTOCOL */}
               <div className="bg-[#111111] text-white p-6 rounded-2xl shadow-xl space-y-4">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 bg-emerald-500 text-white rounded-xl flex items-center justify-center flex-shrink-0">
@@ -1268,8 +1322,8 @@ export default function ListPropertyModal({
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-white">Direct-to-Admin Verification Protocol</h4>
-                    <p className="text-[11.5px] text-gray-400">
-                      Upon submission, your listing is routed immediately to the Admin Portal (<code>/admin-secret</code>) with "Pending Approval" status for RERA & title compliance review.
+                    <p className="text-[11.5px] text-gray-300 mt-0.5 leading-relaxed">
+                      After submission, your listing is routed immediately to the Admin with &quot;Pending Approval&quot; status for RERA &amp; title compliance review
                     </p>
                   </div>
                 </div>
