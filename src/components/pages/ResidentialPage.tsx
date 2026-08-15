@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Property } from '../../types';
 import { Heart, MapPin, BedDouble, Car, Maximize2, Search, SlidersHorizontal, ShieldCheck } from 'lucide-react';
+import LocationFilterBar, { LocationFilterSelection } from '../common/LocationFilterBar';
+import { checkLocationMatch } from '../../data/locationHierarchy';
 
 interface ResidentialPageProps {
   properties: Property[];
@@ -21,12 +23,28 @@ export default function ResidentialPage({
   const [bhkFilter, setBhkFilter] = useState<number | 'ALL'>('ALL');
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'APARTMENT' | 'VILLA' | 'PLOT' | 'PENTHOUSE'>('ALL');
   const [sortBy, setSortBy] = useState<'NEWEST' | 'PRICE_LOW' | 'PRICE_HIGH'>('NEWEST');
+  const [locationSelection, setLocationSelection] = useState<LocationFilterSelection>({
+    region: 'ALL',
+    stateId: null,
+    stateName: null,
+    cityId: null,
+    cityName: null
+  });
 
   const filtered = residentialProperties.filter((p) => {
-    const matchesSearch = (p.title || '').toLowerCase().includes(search.toLowerCase()) || (p.location || '').toLowerCase().includes(search.toLowerCase()) || (p.city || '').toLowerCase().includes(search.toLowerCase());
+    const matchesLocation = checkLocationMatch(
+      p,
+      locationSelection.region,
+      locationSelection.stateId,
+      locationSelection.cityId
+    );
+    const matchesSearch =
+      (p.title || '').toLowerCase().includes(search.toLowerCase()) ||
+      (p.location || '').toLowerCase().includes(search.toLowerCase()) ||
+      (p.city || '').toLowerCase().includes(search.toLowerCase());
     const matchesBhk = bhkFilter === 'ALL' || p.bedrooms === bhkFilter;
     const matchesType = typeFilter === 'ALL' || p.propertyType === typeFilter;
-    return matchesSearch && matchesBhk && matchesType;
+    return matchesLocation && matchesSearch && matchesBhk && matchesType;
   }).sort((a, b) => {
     if (sortBy === 'PRICE_LOW') return a.price - b.price;
     if (sortBy === 'PRICE_HIGH') return b.price - a.price;
@@ -44,13 +62,23 @@ export default function ResidentialPage({
             Residential Properties for Sale & Rent
           </h1>
           <p className="text-gray-400 text-[14.5px] mt-1 max-w-[600px]">
-            Explore luxury apartments, independent villas, penthouses, and RERA residential plots across prime central locations.
+            Explore luxury apartments, independent villas, penthouses, and RERA residential plots across Indian States & Global Cities.
           </p>
         </div>
       </div>
 
-      {/* Filter Toolbar */}
-      <div className="max-w-[1320px] mx-auto px-4 lg:px-6 -mt-6">
+      {/* Main Content Container */}
+      <div className="max-w-[1320px] mx-auto px-4 lg:px-6 -mt-6 space-y-6">
+        
+        {/* India & International State/City Navigation Bar */}
+        <LocationFilterBar
+          selection={locationSelection}
+          onChange={setLocationSelection}
+          resultCount={filtered.length}
+          itemTypeLabel="Residential Properties"
+        />
+
+        {/* Filter Toolbar */}
         <div className="bg-white rounded-[20px] p-5 shadow-xl border border-gray-200/90 flex flex-col md:flex-row items-center justify-between gap-4">
           
           {/* Search Box */}
@@ -120,14 +148,25 @@ export default function ResidentialPage({
         <div className="flex items-center justify-between mb-6">
           <p className="text-[14px] font-bold text-gray-700">
             Showing <span className="text-[#D61F26] font-extrabold">{filtered.length}</span> Residential Properties
+            {locationSelection.cityName ? ` in ${locationSelection.cityName}` : locationSelection.stateName ? ` in ${locationSelection.stateName}` : ''}
           </p>
         </div>
 
         {filtered.length === 0 ? (
-          <div className="bg-white rounded-2xl p-12 text-center border border-gray-200 my-8">
+          <div className="bg-white rounded-2xl p-12 text-center border border-gray-200 my-8 shadow-xs">
             <SlidersHorizontal className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-            <h3 className="text-[18px] font-bold text-gray-800">No properties matched your criteria</h3>
-            <p className="text-[13px] text-gray-500 mt-1">Try resetting search keywords or filters.</p>
+            <h3 className="text-[18px] font-bold text-gray-800">
+              No residential properties found {locationSelection.cityName ? `in ${locationSelection.cityName}` : ''}
+            </h3>
+            <p className="text-[13px] text-gray-500 mt-1 max-w-md mx-auto">
+              We are continually onboarding verified RERA developers across this region. You can reset filters or request direct broker assistance.
+            </p>
+            <button
+              onClick={() => setLocationSelection({ region: 'ALL', stateId: null, stateName: null, cityId: null, cityName: null })}
+              className="mt-4 px-4 py-2 bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-gray-800 transition-colors cursor-pointer"
+            >
+              View All Locations
+            </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">

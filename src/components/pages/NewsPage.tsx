@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { NewsItem } from '../../types';
-import { Search, Clock, User, Eye, ArrowRight, Newspaper, Globe, Landmark, TrendingUp, Sparkles, SlidersHorizontal, Cpu, Layers } from 'lucide-react';
+import { Search, Clock, User, Eye, ArrowRight, Newspaper, Globe, Landmark, TrendingUp, Cpu, Layers } from 'lucide-react';
+import LocationFilterBar, { LocationFilterSelection } from '../common/LocationFilterBar';
+import { checkLocationMatch } from '../../data/locationHierarchy';
 
 interface NewsPageProps {
   newsItems: NewsItem[];
@@ -9,46 +11,31 @@ interface NewsPageProps {
 
 export default function NewsPage({ newsItems, onSelectNews }: NewsPageProps) {
   const [search, setSearch] = useState('');
-  const [selectedMainCategory, setSelectedMainCategory] = useState<string>('ALL');
   const [selectedSubCategory, setSelectedSubCategory] = useState<string>('ALL');
-
-  const mainCategories = [
-    { id: 'ALL', label: 'All News', icon: Sparkles, badge: newsItems.length },
-    {
-      id: 'India News',
-      label: 'India News',
-      icon: Landmark,
-      flag: '🇮🇳',
-      badge: newsItems.filter(i => i.region === 'India' || i.category === 'India News').length,
-    },
-    {
-      id: 'International News',
-      label: 'International News',
-      icon: Globe,
-      flag: '🌐',
-      badge: newsItems.filter(i => i.region === 'International' || i.category === 'International News').length,
-    },
-  ];
+  const [locationSelection, setLocationSelection] = useState<LocationFilterSelection>({
+    region: 'ALL',
+    stateId: null,
+    stateName: null,
+    cityId: null,
+    cityName: null
+  });
 
   const subCategories = [
     { id: 'ALL', label: 'All Topics', icon: Layers },
     { id: 'Market Trends', label: 'Market Trends', icon: TrendingUp },
     { id: 'Market News', label: 'Market News', icon: Newspaper },
-    { id: 'Policy Update', label: 'Policy Updates', icon: SlidersHorizontal },
+    { id: 'Policy Update', label: 'Policy Updates', icon: Newspaper },
     { id: 'Technology', label: 'Technology', icon: Cpu },
   ];
 
   const filtered = newsItems.filter((item) => {
-    // Determine item region
-    const itemRegion = item.region || ((item.category || '').includes('International') ? 'International' : 'India');
-
-    // Main Category matching
-    let matchesMain = true;
-    if (selectedMainCategory === 'India News') {
-      matchesMain = itemRegion === 'India' || item.category === 'India News';
-    } else if (selectedMainCategory === 'International News') {
-      matchesMain = itemRegion === 'International' || item.category === 'International News';
-    }
+    // Location matching
+    const matchesLocation = checkLocationMatch(
+      item,
+      locationSelection.region,
+      locationSelection.stateId,
+      locationSelection.cityId
+    );
 
     // Sub Category matching
     let matchesSub = true;
@@ -62,7 +49,7 @@ export default function NewsPage({ newsItems, onSelectNews }: NewsPageProps) {
       (item.excerpt || '').toLowerCase().includes(search.toLowerCase()) ||
       (item.category || '').toLowerCase().includes(search.toLowerCase());
 
-    return matchesMain && matchesSub && matchesSearch;
+    return matchesLocation && matchesSub && matchesSearch;
   });
 
   return (
@@ -81,96 +68,61 @@ export default function NewsPage({ newsItems, onSelectNews }: NewsPageProps) {
           </h1>
 
           <p className="text-gray-300 text-[14.5px] mt-2 max-w-[650px] leading-relaxed">
-            Stay updated with top headlines across <strong>India News</strong> and <strong>International Property Markets</strong>, policy updates, interest rate forecasts, and market trends.
+            Stay updated with top headlines across <strong>India’s States & Cities</strong> and <strong>International Property Markets</strong>, policy updates, interest rate forecasts, and market trends.
           </p>
         </div>
       </div>
 
-      {/* Category Filter Toolbar */}
-      <div className="max-w-[1320px] mx-auto px-4 lg:px-6 -mt-6 relative z-20">
-        <div className="bg-white rounded-[22px] p-5 shadow-xl border border-gray-200/90 space-y-4">
-          
-          {/* Main Categories Row */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-extrabold uppercase tracking-widest text-gray-400">
-                Main Categories
-              </span>
-            </div>
-            <div className="flex items-center gap-3 overflow-x-auto scrollbar-none pb-1">
-              {mainCategories.map((cat) => {
-                const Icon = cat.icon;
-                const isActive = selectedMainCategory === cat.id;
+      {/* Main Filter & Navigation Area */}
+      <div className="max-w-[1320px] mx-auto px-4 lg:px-6 -mt-6 relative z-20 space-y-6">
+        
+        {/* India & International State/City Navigation Bar */}
+        <LocationFilterBar
+          selection={locationSelection}
+          onChange={setLocationSelection}
+          resultCount={filtered.length}
+          itemTypeLabel="News Articles"
+        />
 
-                return (
-                  <button
-                    key={cat.id}
-                    onClick={() => {
-                      setSelectedMainCategory(cat.id);
-                      setSelectedSubCategory('ALL');
-                    }}
-                    className={`flex items-center gap-2.5 px-5 py-3 rounded-xl text-[14px] font-bold transition-all cursor-pointer whitespace-nowrap border ${
-                      isActive
-                        ? 'bg-[#D61F26] text-white border-[#D61F26] shadow-lg shadow-red-900/25 scale-[1.02]'
-                        : 'bg-gray-50 text-gray-800 border-gray-200 hover:bg-gray-100 hover:border-gray-300'
-                    }`}
-                    style={{ fontFamily: 'Inter, sans-serif' }}
-                  >
-                    {cat.flag ? <span className="text-base">{cat.flag}</span> : <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-[#D61F26]'}`} />}
-                    <span>{cat.label}</span>
-                    <span
-                      className={`text-[11px] font-extrabold px-2 py-0.5 rounded-full ${
-                        isActive ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-700'
-                      }`}
-                    >
-                      {cat.badge}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+        {/* Sub-Category & Search Toolbar */}
+        <div className="bg-white rounded-[22px] p-5 shadow-xl border border-gray-200/90 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          
+          {/* Sub Categories Tabs */}
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-none py-1">
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-gray-400 shrink-0 mr-1">
+              Topic:
+            </span>
+            {subCategories.map((sub) => {
+              const Icon = sub.icon;
+              const isActive = selectedSubCategory === sub.id;
+
+              return (
+                <button
+                  key={sub.id}
+                  onClick={() => setSelectedSubCategory(sub.id)}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[12.5px] font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                    isActive
+                      ? 'bg-black text-white shadow-xs'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'
+                  }`}
+                >
+                  <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-gray-500'}`} />
+                  <span>{sub.label}</span>
+                </button>
+              );
+            })}
           </div>
 
-          <div className="h-px bg-gray-100" />
-
-          {/* Sub Categories Row */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1">
-            <div className="flex items-center gap-2 overflow-x-auto scrollbar-none py-1">
-              <span className="text-[11px] font-extrabold uppercase tracking-wider text-gray-400 shrink-0 mr-1">
-                Sub Category:
-              </span>
-              {subCategories.map((sub) => {
-                const Icon = sub.icon;
-                const isActive = selectedSubCategory === sub.id;
-
-                return (
-                  <button
-                    key={sub.id}
-                    onClick={() => setSelectedSubCategory(sub.id)}
-                    className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[12.5px] font-semibold transition-all cursor-pointer whitespace-nowrap ${
-                      isActive
-                        ? 'bg-black text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'
-                    }`}
-                  >
-                    <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-gray-500'}`} />
-                    <span>{sub.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Search Box */}
-            <div className="relative w-full md:w-[320px] shrink-0 mt-2 md:mt-0">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search headlines or keywords..."
-                className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-[13px] focus:outline-none focus:border-[#D61F26] bg-gray-50/60"
-              />
-            </div>
+          {/* Search Box */}
+          <div className="relative w-full md:w-[320px] shrink-0">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search headlines or keywords..."
+              className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-[13px] focus:outline-none focus:border-[#D61F26] bg-gray-50/60"
+            />
           </div>
 
         </div>
@@ -180,9 +132,15 @@ export default function NewsPage({ newsItems, onSelectNews }: NewsPageProps) {
       <div className="max-w-[1320px] mx-auto px-4 lg:px-6 mt-10">
         <div className="flex items-center justify-between mb-4 px-1">
           <p className="text-[13.5px] text-gray-600 font-semibold">
-            Showing <span className="text-[#D61F26] font-bold">{filtered.length}</span> Articles in{' '}
-            <span className="text-gray-900 font-bold">{selectedMainCategory === 'ALL' ? 'All Regions' : selectedMainCategory}</span>
-            {selectedSubCategory !== 'ALL' && <span> • Sub Category: <strong className="text-[#D61F26]">{selectedSubCategory}</strong></span>}
+            Showing <span className="text-[#D61F26] font-bold">{filtered.length}</span> Articles
+            {locationSelection.cityName ? (
+              <span> for <strong className="text-gray-900">{locationSelection.cityName}</strong></span>
+            ) : locationSelection.stateName ? (
+              <span> for <strong className="text-gray-900">{locationSelection.stateName}</strong></span>
+            ) : locationSelection.region !== 'ALL' ? (
+              <span> in <strong className="text-gray-900">{locationSelection.region}</strong></span>
+            ) : null}
+            {selectedSubCategory !== 'ALL' && <span> • Topic: <strong className="text-[#D61F26]">{selectedSubCategory}</strong></span>}
           </p>
         </div>
 
@@ -283,8 +241,16 @@ export default function NewsPage({ newsItems, onSelectNews }: NewsPageProps) {
           {filtered.length === 0 && (
             <div className="bg-white rounded-[20px] p-12 text-center border border-gray-200">
               <Newspaper className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <h3 className="text-lg font-bold text-gray-700">No News Articles Found</h3>
-              <p className="text-gray-500 text-sm mt-1">Try selecting a different category or clear search terms.</p>
+              <h3 className="text-lg font-bold text-gray-700">
+                No News Articles Found {locationSelection.cityName ? `for ${locationSelection.cityName}` : ''}
+              </h3>
+              <p className="text-gray-500 text-sm mt-1">Try selecting a different state/city or reset location filters.</p>
+              <button
+                onClick={() => setLocationSelection({ region: 'ALL', stateId: null, stateName: null, cityId: null, cityName: null })}
+                className="mt-4 px-4 py-2 bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-gray-800 transition-colors cursor-pointer"
+              >
+                View All News
+              </button>
             </div>
           )}
         </div>
@@ -293,5 +259,3 @@ export default function NewsPage({ newsItems, onSelectNews }: NewsPageProps) {
     </div>
   );
 }
-
-
