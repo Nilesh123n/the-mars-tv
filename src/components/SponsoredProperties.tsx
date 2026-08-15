@@ -17,7 +17,13 @@ export default function SponsoredProperties({
   onSelectProperty = () => {},
   onViewAll = () => {},
 }: SponsoredPropertiesProps) {
-  const sponsoredList = properties.filter((p) => p.isSponsored);
+  const sponsoredList = properties.filter(
+    (p) =>
+      p.isSponsored &&
+      p.status !== 'PENDING_APPROVAL' &&
+      p.status !== 'REJECTED' &&
+      p.status !== 'INACTIVE'
+  );
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const prevSlide = () => {

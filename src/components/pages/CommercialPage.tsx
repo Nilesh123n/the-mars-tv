@@ -17,7 +17,16 @@ export default function CommercialPage({
   onToggleWishlist = () => {},
   onSelectProperty = () => {},
 }: CommercialPageProps) {
-  const commercialProperties = properties.filter((p) => p.listingType === 'COMMERCIAL' || p.propertyType === 'OFFICE' || p.propertyType === 'RETAIL' || p.propertyType === 'WAREHOUSE');
+  const commercialProperties = properties.filter(
+    (p) =>
+      (p.listingType === 'COMMERCIAL' ||
+        p.propertyType === 'OFFICE' ||
+        p.propertyType === 'RETAIL' ||
+        p.propertyType === 'WAREHOUSE') &&
+      p.status !== 'PENDING_APPROVAL' &&
+      p.status !== 'REJECTED' &&
+      p.status !== 'INACTIVE'
+  );
 
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'OFFICE' | 'RETAIL' | 'WAREHOUSE'>('ALL');

@@ -1,8 +1,10 @@
-export type PropertyType = 'APARTMENT' | 'VILLA' | 'PLOT' | 'ROW_HOUSE' | 'OFFICE' | 'RETAIL' | 'WAREHOUSE' | 'PENTHOUSE' | 'STUDIO';
+export type PropertyType = 'APARTMENT' | 'VILLA' | 'PLOT' | 'ROW_HOUSE' | 'OFFICE' | 'RETAIL' | 'WAREHOUSE' | 'PENTHOUSE' | 'STUDIO' | 'BUILDER_FLOOR' | 'LAND';
 
-export type ListingType = 'BUY' | 'SELL' | 'RENT' | 'COMMERCIAL';
+export type ListingType = 'BUY' | 'SELL' | 'RENT' | 'LEASE' | 'COMMERCIAL';
 
-export type PropertyStatus = 'ACTIVE' | 'SOLD' | 'RENTED' | 'INACTIVE';
+export type PropertyStatus = 'ACTIVE' | 'PENDING_APPROVAL' | 'SOLD' | 'RENTED' | 'INACTIVE' | 'REJECTED';
+
+export type UserRole = 'DEVELOPER' | 'BROKER' | 'OWNER';
 
 export interface Property {
   id: string;
@@ -31,6 +33,27 @@ export interface Property {
   lat?: number;
   lng?: number;
   createdAt: string;
+
+  // Detailed Verification & Listing Submission Fields
+  userRole?: UserRole;
+  subCategory?: string;
+  locality?: string;
+  address?: string;
+  pincode?: string;
+  coordinates?: string;
+  configuration?: string;
+  pricePerSqFt?: number;
+  maintenanceCharges?: number;
+  possessionStatus?: 'READY_TO_MOVE' | 'UNDER_CONSTRUCTION' | 'NEW_LAUNCH';
+  possessionDate?: string;
+  ownershipProofDoc?: string;
+  approvalAuthority?: string;
+  contactName?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  agencyName?: string;
+  isPhoneVerified?: boolean;
+  submissionId?: string;
 }
 
 export type ProjectType = 'RESIDENTIAL' | 'COMMERCIAL' | 'EXCLUSIVE' | 'MIXED_USE';

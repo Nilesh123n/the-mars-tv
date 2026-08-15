@@ -99,11 +99,18 @@ export default function AdminSecretPage({
   const [passChangeSuccess, setPassChangeSuccess] = useState('');
 
   // Active Admin Tab
-  const [activeTab, setActiveTab] = useState<'properties' | 'news' | 'pr-services' | 'leads' | 'construction' | 'site-settings'>('properties');
+  const [activeTab, setActiveTab] = useState<
+    'properties' | 'property-approval' | 'news' | 'pr-services' | 'leads' | 'construction' | 'site-settings'
+  >('properties');
 
   // Search Input with Debounce to prevent rapid re-renders / Egress
   const [searchInput, setSearchInput] = useState('');
   const debouncedSearch = useDebounce(searchInput, 300);
+
+  // Property Status Filter
+  const [propertyStatusFilter, setPropertyStatusFilter] = useState<
+    'ALL' | 'PENDING_APPROVAL' | 'ACTIVE' | 'SOLD' | 'INACTIVE' | 'REJECTED'
+  >('ALL');
 
   // Modals & Editing States
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
@@ -306,6 +313,45 @@ export default function AdminSecretPage({
       setProperties(updated);
       showToast(`Property deleted.`);
     }
+  };
+
+  const handleApproveProperty = async (id: string, title: string) => {
+    const prop = properties.find((p) => p.id === id);
+    if (!prop) return;
+    const approvedProp: Property = {
+      ...prop,
+      status: 'ACTIVE',
+      isVerified: true,
+    };
+    const updated = await DataService.saveProperty(approvedProp);
+    setProperties(updated);
+    showToast(`Property "${title}" approved and published LIVE!`);
+  };
+
+  const handleRejectProperty = async (id: string, title: string) => {
+    const confirmDelete = window.confirm(
+      `Are you sure you want to reject and remove property "${title}"? This action cannot be undone.`
+    );
+    if (!confirmDelete) return;
+    const updated = await DataService.deleteProperty(id);
+    setProperties(updated);
+    showToast(`Property "${title}" rejected and removed.`);
+  };
+
+  const handleApproveAllPending = async () => {
+    const pendingList = properties.filter((p) => p.status === 'PENDING_APPROVAL');
+    if (pendingList.length === 0) return;
+    
+    let latest = properties;
+    for (const prop of pendingList) {
+      latest = await DataService.saveProperty({
+        ...prop,
+        status: 'ACTIVE',
+        isVerified: true,
+      });
+    }
+    setProperties(latest);
+    showToast(`All ${pendingList.length} pending properties approved & published!`);
   };
 
   const handleCreateNewProperty = () => {
@@ -683,6 +729,38 @@ export default function AdminSecretPage({
             </button>
 
             <button
+              onClick={() => setActiveTab('property-approval')}
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+                activeTab === 'property-approval'
+                  ? 'bg-[#D61F26] text-white shadow-md'
+                  : properties.filter((p) => p.status === 'PENDING_APPROVAL').length > 0
+                  ? 'bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              <ShieldCheck
+                className={`w-4 h-4 ${
+                  activeTab !== 'property-approval' &&
+                  properties.filter((p) => p.status === 'PENDING_APPROVAL').length > 0
+                    ? 'text-amber-600'
+                    : ''
+                }`}
+              />
+              <span>Property Approval</span>
+              {properties.filter((p) => p.status === 'PENDING_APPROVAL').length > 0 && (
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[10.5px] font-black ${
+                    activeTab === 'property-approval'
+                      ? 'bg-white text-[#D61F26]'
+                      : 'bg-[#D61F26] text-white animate-pulse'
+                  }`}
+                >
+                  {properties.filter((p) => p.status === 'PENDING_APPROVAL').length}
+                </span>
+              )}
+            </button>
+
+            <button
               onClick={() => setActiveTab('news')}
               className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
                 activeTab === 'news'
@@ -767,6 +845,16 @@ export default function AdminSecretPage({
                 </button>
               )}
 
+              {activeTab === 'property-approval' && properties.filter((p) => p.status === 'PENDING_APPROVAL').length > 0 && (
+                <button
+                  onClick={handleApproveAllPending}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all shadow-md cursor-pointer whitespace-nowrap"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Approve All ({properties.filter((p) => p.status === 'PENDING_APPROVAL').length})</span>
+                </button>
+              )}
+
               {activeTab === 'news' && (
                 <button
                   onClick={handleCreateNewNews}
@@ -793,25 +881,110 @@ export default function AdminSecretPage({
         {/* TAB 1: PROPERTIES MANAGEMENT */}
         {activeTab === 'properties' && (
           <div className="space-y-4">
+            {/* Status Filter Chips */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-gray-200">
+              {[
+                { id: 'ALL', label: 'All Properties', count: properties.length },
+                {
+                  id: 'PENDING_APPROVAL',
+                  label: 'Pending Approval',
+                  count: properties.filter((p) => p.status === 'PENDING_APPROVAL').length,
+                  isAlert: properties.filter((p) => p.status === 'PENDING_APPROVAL').length > 0,
+                },
+                {
+                  id: 'ACTIVE',
+                  label: 'Live / Active',
+                  count: properties.filter((p) => p.status === 'ACTIVE' || !p.status).length,
+                },
+                {
+                  id: 'SOLD',
+                  label: 'Sold / Inactive / Rejected',
+                  count: properties.filter(
+                    (p) => p.status === 'SOLD' || p.status === 'INACTIVE' || p.status === 'REJECTED'
+                  ).length,
+                },
+              ].map((pill) => {
+                const isActive = propertyStatusFilter === pill.id;
+                return (
+                  <button
+                    key={pill.id}
+                    onClick={() => setPropertyStatusFilter(pill.id as any)}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                      isActive
+                        ? 'bg-[#111111] text-white shadow-sm'
+                        : pill.isAlert
+                        ? 'bg-amber-100 text-amber-950 border border-amber-300 hover:bg-amber-200'
+                        : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100'
+                    }`}
+                  >
+                    <span>{pill.label}</span>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10.5px] font-black ${
+                        isActive
+                          ? 'bg-[#D61F26] text-white'
+                          : pill.isAlert
+                          ? 'bg-[#D61F26] text-white animate-pulse'
+                          : 'bg-gray-200 text-gray-800'
+                      }`}
+                    >
+                      {pill.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {properties
-                .filter(
-                  (p) =>
+                .filter((p) => {
+                  // Status filter
+                  if (propertyStatusFilter === 'PENDING_APPROVAL') {
+                    if (p.status !== 'PENDING_APPROVAL') return false;
+                  } else if (propertyStatusFilter === 'ACTIVE') {
+                    if (p.status !== 'ACTIVE' && p.status) return false;
+                  } else if (propertyStatusFilter === 'SOLD') {
+                    if (p.status !== 'SOLD' && p.status !== 'INACTIVE' && p.status !== 'REJECTED') return false;
+                  }
+
+                  // Search term filter
+                  const matchesSearch =
                     (p.title || '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
                     (p.location || '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-                    (p.propertyType || '').toLowerCase().includes(debouncedSearch.toLowerCase())
-                )
+                    (p.city || '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                    (p.reraNumber || '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                    (p.contactName || '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                    (p.propertyType || '').toLowerCase().includes(debouncedSearch.toLowerCase());
+
+                  return matchesSearch;
+                })
                 .map((property) => {
+                  const isPending = property.status === 'PENDING_APPROVAL';
                   const primaryImg =
-                    property.images.find((i) => i.isPrimary)?.url ||
-                    property.images[0]?.url ||
-                    '';
+                    property.images?.find((i) => i.isPrimary)?.url ||
+                    property.images?.[0]?.url ||
+                    'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&q=80';
+
                   return (
                     <div
                       key={property.id}
-                      className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
+                      className={`bg-white rounded-2xl border overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col justify-between ${
+                        isPending ? 'border-amber-400 ring-2 ring-amber-300/60' : 'border-gray-200'
+                      }`}
                     >
                       <div>
+                        {/* Pending Verification Amber Banner */}
+                        {isPending && (
+                          <div className="bg-amber-500 text-white px-3.5 py-1.5 flex items-center justify-between text-xs font-black tracking-wide">
+                            <span className="flex items-center gap-1.5">
+                              <ShieldCheck className="w-4 h-4" />
+                              <span>AWAITING ADMIN VERIFICATION</span>
+                            </span>
+                            <span className="text-[10px] bg-black/30 px-2 py-0.5 rounded font-mono">
+                              {property.submissionId || property.id}
+                            </span>
+                          </div>
+                        )}
+
                         {/* Image preview */}
                         <div className="relative h-44 bg-gray-100 overflow-hidden">
                           <img
@@ -826,6 +999,11 @@ export default function AdminSecretPage({
                             <span className="bg-black/70 text-white text-[10px] font-extrabold px-2 py-0.5 rounded backdrop-blur">
                               {property.propertyType}
                             </span>
+                            {property.userRole && (
+                              <span className="bg-blue-700 text-white text-[10px] font-black px-2 py-0.5 rounded shadow">
+                                {property.userRole}
+                              </span>
+                            )}
                           </div>
                           <div className="absolute bottom-2 right-2 bg-black/80 text-white text-xs font-black px-2.5 py-1 rounded-md backdrop-blur">
                             {property.priceLabel}
@@ -833,28 +1011,73 @@ export default function AdminSecretPage({
                         </div>
 
                         {/* Text info */}
-                        <div className="p-4">
-                          <h3 className="font-bold text-gray-900 text-sm line-clamp-1 mb-1">
-                            {property.title}
-                          </h3>
-                          <p className="text-gray-500 text-xs flex items-center gap-1 mb-3">
-                            <MapPin className="w-3 h-3 text-[#D61F26]" />
-                            {property.location}
-                          </p>
-                          <p className="text-gray-600 text-xs line-clamp-2 leading-relaxed mb-3">
+                        <div className="p-4 space-y-2.5">
+                          <div>
+                            <h3 className="font-bold text-gray-900 text-sm line-clamp-1 mb-0.5">
+                              {property.title}
+                            </h3>
+                            <p className="text-gray-500 text-xs flex items-center gap-1">
+                              <MapPin className="w-3 h-3 text-[#D61F26]" />
+                              {property.location}
+                            </p>
+                          </div>
+
+                          {/* Verification Credential Details */}
+                          {(property.reraNumber || property.contactName || property.ownershipProofDoc) && (
+                            <div className="p-2.5 bg-gray-50 border border-gray-200/80 rounded-xl text-[11px] space-y-1 text-gray-700">
+                              {property.contactName && (
+                                <div className="flex justify-between">
+                                  <span className="text-gray-500 font-medium">Contact:</span>
+                                  <span className="font-bold text-gray-900 truncate">
+                                    {property.contactName} ({property.contactPhone || 'No Phone'})
+                                  </span>
+                                </div>
+                              )}
+                              {property.agencyName && (
+                                <div className="flex justify-between">
+                                  <span className="text-gray-500 font-medium">Agency/Builder:</span>
+                                  <span className="font-bold text-gray-900 truncate">{property.agencyName}</span>
+                                </div>
+                              )}
+                              {property.reraNumber && (
+                                <div className="flex justify-between">
+                                  <span className="text-gray-500 font-medium">RERA Reg:</span>
+                                  <span className="font-mono font-bold text-emerald-700">{property.reraNumber}</span>
+                                </div>
+                              )}
+                              {property.ownershipProofDoc && (
+                                <div className="flex justify-between">
+                                  <span className="text-gray-500 font-medium">Proof Doc:</span>
+                                  <span className="font-medium text-blue-700 truncate max-w-[170px]">
+                                    {property.ownershipProofDoc}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          <p className="text-gray-600 text-xs line-clamp-2 leading-relaxed">
                             {property.description}
                           </p>
 
                           {/* Attributes badges */}
-                          <div className="flex flex-wrap gap-1.5 text-[10.5px]">
+                          <div className="flex flex-wrap gap-1.5 text-[10px]">
+                            {property.status === 'PENDING_APPROVAL' ? (
+                              <span className="bg-amber-100 text-amber-900 font-extrabold px-2 py-0.5 rounded border border-amber-300">
+                                ⏳ Pending Approval
+                              </span>
+                            ) : property.status === 'REJECTED' ? (
+                              <span className="bg-red-100 text-red-800 font-extrabold px-2 py-0.5 rounded">
+                                ❌ Rejected
+                              </span>
+                            ) : (
+                              <span className="bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded">
+                                ✓ Live
+                              </span>
+                            )}
                             {property.isFeatured && (
                               <span className="bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded">
                                 Featured
-                              </span>
-                            )}
-                            {property.isSponsored && (
-                              <span className="bg-purple-100 text-purple-800 font-bold px-2 py-0.5 rounded">
-                                Sponsored
                               </span>
                             )}
                             {property.isVerified && (
@@ -867,34 +1090,395 @@ export default function AdminSecretPage({
                       </div>
 
                       {/* Card Footer Actions */}
-                      <div className="p-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-                        <span className="text-[11px] text-gray-400 font-mono">
-                          ID: {property.id}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => {
-                              setEditingProperty({ ...property });
-                              setIsNewProperty(false);
-                            }}
-                            className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold text-xs rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                            <span>Edit</span>
-                          </button>
-                          <button
-                            onClick={() => handleDeleteProperty(property.id, property.title)}
-                            className="px-2.5 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 font-bold text-xs rounded-lg transition-colors cursor-pointer"
-                            title="Delete Property"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                      <div className="p-3 bg-gray-50 border-t border-gray-100 space-y-2">
+                        {/* Quick Approve / Reject bar for Pending listings */}
+                        {isPending && (
+                          <div className="grid grid-cols-2 gap-2 pb-2 border-b border-gray-200">
+                            <button
+                              type="button"
+                              onClick={() => handleApproveProperty(property.id, property.title)}
+                              className="w-full py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1 shadow-xs cursor-pointer"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Approve & Publish</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRejectProperty(property.id, property.title)}
+                              className="w-full py-1.5 bg-red-100 hover:bg-red-200 text-red-800 font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                              <span>Reject</span>
+                            </button>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10.5px] text-gray-400 font-mono truncate max-w-[120px]">
+                            {property.id}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => {
+                                setEditingProperty({ ...property });
+                                setIsNewProperty(false);
+                              }}
+                              className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold text-xs rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                              <span>Edit</span>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteProperty(property.id, property.title)}
+                              className="px-2.5 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 font-bold text-xs rounded-lg transition-colors cursor-pointer"
+                              title="Delete Property"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
                   );
                 })}
             </div>
+          </div>
+        )}
+
+        {/* TAB 1.5: DEDICATED PROPERTY APPROVAL TAB */}
+        {activeTab === 'property-approval' && (
+          <div className="space-y-6">
+            {/* Header Info Banner */}
+            <div className="bg-gradient-to-r from-amber-500 via-amber-600 to-[#D61F26] rounded-2xl p-5 text-white shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-6 h-6 text-amber-200" />
+                  <h2 className="text-lg font-black tracking-tight" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                    Property Verification & Approval Desk
+                  </h2>
+                </div>
+                <p className="text-xs text-amber-100 max-w-2xl leading-relaxed">
+                  Review new submissions from Developers, Brokers, and Owners with status <code className="bg-black/30 px-1.5 py-0.5 rounded font-mono text-[11px]">PENDING_APPROVAL</code>. Inspect RERA numbers, ownership deeds, and contact credentials before approving them to go LIVE.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                {properties.filter((p) => p.status === 'PENDING_APPROVAL').length > 0 && (
+                  <button
+                    onClick={handleApproveAllPending}
+                    className="px-4 py-2.5 bg-white text-emerald-800 hover:bg-emerald-50 text-xs font-black rounded-xl flex items-center gap-2 transition-all shadow-md cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Approve All Pending ({properties.filter((p) => p.status === 'PENDING_APPROVAL').length})</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Metrics Overview Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-xs">
+                <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Total Pending</span>
+                <p className="text-xl font-black text-amber-600 mt-1">
+                  {properties.filter((p) => p.status === 'PENDING_APPROVAL').length}
+                </p>
+              </div>
+              <div className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-xs">
+                <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Residential</span>
+                <p className="text-xl font-black text-gray-800 mt-1">
+                  {properties.filter((p) => p.status === 'PENDING_APPROVAL' && p.propertyType !== 'OFFICE' && p.propertyType !== 'RETAIL' && p.propertyType !== 'WAREHOUSE' && p.listingType !== 'COMMERCIAL').length}
+                </p>
+              </div>
+              <div className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-xs">
+                <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Commercial</span>
+                <p className="text-xl font-black text-gray-800 mt-1">
+                  {properties.filter((p) => p.status === 'PENDING_APPROVAL' && (p.propertyType === 'OFFICE' || p.propertyType === 'RETAIL' || p.propertyType === 'WAREHOUSE' || p.listingType === 'COMMERCIAL')).length}
+                </p>
+              </div>
+              <div className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-xs">
+                <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Live & Active</span>
+                <p className="text-xl font-black text-emerald-600 mt-1">
+                  {properties.filter((p) => p.status === 'ACTIVE' || !p.status).length}
+                </p>
+              </div>
+            </div>
+
+            {/* Pending List Cards */}
+            {(() => {
+              const pendingList = properties.filter((p) => p.status === 'PENDING_APPROVAL');
+              const filteredPending = pendingList.filter(
+                (p) =>
+                  (p.title || '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                  (p.location || '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                  (p.city || '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                  (p.contactName || '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                  (p.agencyName || '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                  (p.reraNumber || '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                  (p.submissionId || '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                  (p.id || '').toLowerCase().includes(debouncedSearch.toLowerCase())
+              );
+
+              if (pendingList.length === 0) {
+                return (
+                  <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-12 text-center space-y-4">
+                    <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
+                      <CheckCircle2 className="w-8 h-8" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-extrabold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                        All Caught Up! No Pending Approvals
+                      </h3>
+                      <p className="text-xs text-gray-500 max-w-md mx-auto mt-1">
+                        All property listings have been verified and processed. New submissions from "List Your Property" will instantly appear here for your review.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setActiveTab('properties')}
+                      className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                    >
+                      View All Live Properties
+                    </button>
+                  </div>
+                );
+              }
+
+              if (filteredPending.length === 0) {
+                return (
+                  <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center space-y-3">
+                    <AlertCircle className="w-8 h-8 text-gray-400 mx-auto" />
+                    <p className="text-xs text-gray-600 font-medium">
+                      No pending properties match search "{debouncedSearch}".
+                    </p>
+                    <button
+                      onClick={() => setSearchInput('')}
+                      className="text-xs text-[#D61F26] font-bold hover:underline cursor-pointer"
+                    >
+                      Clear Search Filter
+                    </button>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-4">
+                  {filteredPending.map((property) => {
+                    const primaryImg =
+                      property.images?.find((img) => img.isPrimary)?.url ||
+                      property.images?.[0]?.url ||
+                      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200&q=80';
+
+                    return (
+                      <div
+                        key={property.id}
+                        className="bg-white rounded-2xl border-2 border-amber-300 shadow-sm hover:shadow-md transition-all overflow-hidden"
+                      >
+                        {/* Top Identification Ribbon */}
+                        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="bg-amber-500 text-white font-mono text-[11px] font-black px-2 py-0.5 rounded">
+                              {property.submissionId || property.id}
+                            </span>
+                            <span className="text-amber-900 text-xs font-black uppercase tracking-wider flex items-center gap-1">
+                              <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                              Pending Approval
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            {property.userRole && (
+                              <span className="bg-blue-100 text-blue-900 border border-blue-300 text-[10.5px] font-black px-2.5 py-0.5 rounded-md">
+                                Role: {property.userRole}
+                              </span>
+                            )}
+                            <span className="text-[11px] text-gray-500 font-medium">
+                              Category: <strong className="text-gray-800">{property.listingType} • {property.propertyType}</strong>
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Card Body */}
+                        <div className="p-4 sm:p-5 grid grid-cols-1 lg:grid-cols-12 gap-5">
+                          {/* Image Preview */}
+                          <div className="lg:col-span-4 relative rounded-xl overflow-hidden bg-gray-100 h-48 lg:h-full min-h-[190px]">
+                            <img
+                              src={primaryImg}
+                              alt={property.title}
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute top-2 left-2 flex gap-1.5 flex-wrap">
+                              <span className="bg-[#D61F26] text-white text-[10px] font-extrabold px-2 py-0.5 rounded shadow">
+                                {property.listingType}
+                              </span>
+                              {property.subCategory && (
+                                <span className="bg-black/70 text-white text-[10px] font-bold px-2 py-0.5 rounded backdrop-blur">
+                                  {property.subCategory}
+                                </span>
+                              )}
+                            </div>
+                            <div className="absolute bottom-2 right-2 bg-black/90 text-white text-xs font-black px-3 py-1 rounded-lg backdrop-blur">
+                              {property.priceLabel}
+                            </div>
+                          </div>
+
+                          {/* Property Details */}
+                          <div className="lg:col-span-8 space-y-4">
+                            <div>
+                              <h3 className="font-extrabold text-gray-900 text-base sm:text-lg mb-1 leading-snug">
+                                {property.title}
+                              </h3>
+                              <p className="text-gray-500 text-xs flex items-center gap-1.5">
+                                <MapPin className="w-3.5 h-3.5 text-[#D61F26] shrink-0" />
+                                <span>{property.address || property.location} ({property.city})</span>
+                                {property.pincode && <span className="text-gray-400">• PIN: {property.pincode}</span>}
+                              </p>
+                            </div>
+
+                            {/* Key Specs Grid */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs bg-gray-50 p-3 rounded-xl border border-gray-200/80">
+                              <div>
+                                <span className="text-gray-400 text-[10px] block font-bold uppercase">Config / Area</span>
+                                <span className="font-bold text-gray-800">
+                                  {property.configuration || `${property.bedrooms || 3} BHK`} • {property.area} {property.areaUnit || 'sq.ft'}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-gray-400 text-[10px] block font-bold uppercase">Rate</span>
+                                <span className="font-bold text-gray-800">
+                                  ₹{property.pricePerSqFt ? property.pricePerSqFt.toLocaleString('en-IN') : 'N/A'} / sq.ft
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-gray-400 text-[10px] block font-bold uppercase">Baths & Parking</span>
+                                <span className="font-bold text-gray-800">
+                                  {property.bathrooms || 2} Bath • {property.parking || 1} Parking
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-gray-400 text-[10px] block font-bold uppercase">Possession</span>
+                                <span className="font-bold text-gray-800">
+                                  {property.possessionStatus || 'Ready to Move'} {property.possessionDate ? `(${property.possessionDate})` : ''}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* RERA & Submitter Information Highlight */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {/* RERA & Compliance */}
+                              <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-1 text-xs">
+                                <div className="flex items-center gap-1.5 text-emerald-900 font-bold text-[11px]">
+                                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
+                                  <span>RERA & Compliance</span>
+                                </div>
+                                <div className="space-y-0.5 text-[11px] text-gray-700">
+                                  <p>
+                                    <span className="text-gray-500">RERA No:</span>{' '}
+                                    <strong className="font-mono text-emerald-800">{property.reraNumber || 'Not Specified'}</strong>
+                                  </p>
+                                  {property.approvalAuthority && (
+                                    <p>
+                                      <span className="text-gray-500">Authority:</span>{' '}
+                                      <strong className="text-gray-800">{property.approvalAuthority}</strong>
+                                    </p>
+                                  )}
+                                  {property.ownershipProofDoc && (
+                                    <p className="flex items-center gap-1">
+                                      <span className="text-gray-500">Proof Doc:</span>{' '}
+                                      <span className="text-blue-700 font-semibold truncate">{property.ownershipProofDoc}</span>
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Contact & Submitter Details */}
+                              <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl space-y-1 text-xs">
+                                <div className="flex items-center gap-1.5 text-blue-900 font-bold text-[11px]">
+                                  <User className="w-3.5 h-3.5 text-blue-700" />
+                                  <span>Submitter Credentials</span>
+                                </div>
+                                <div className="space-y-0.5 text-[11px] text-gray-700">
+                                  <p>
+                                    <span className="text-gray-500">Name:</span>{' '}
+                                    <strong className="text-gray-900">{property.contactName || 'Property Lister'}</strong>
+                                    {property.agencyName && <span className="text-gray-500"> ({property.agencyName})</span>}
+                                  </p>
+                                  <p className="flex items-center gap-1">
+                                    <span className="text-gray-500">Phone:</span>{' '}
+                                    <strong className="text-gray-900">{property.contactPhone || 'N/A'}</strong>
+                                    <span className="bg-emerald-100 text-emerald-800 text-[9px] font-bold px-1 rounded">OTP Verified</span>
+                                  </p>
+                                  {property.contactEmail && (
+                                    <p>
+                                      <span className="text-gray-500">Email:</span>{' '}
+                                      <span className="text-gray-800">{property.contactEmail}</span>
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Description Preview */}
+                            <p className="text-gray-600 text-xs line-clamp-2 leading-relaxed">
+                              {property.description}
+                            </p>
+
+                            {/* Amenities Chips */}
+                            {property.amenities && property.amenities.length > 0 && (
+                              <div className="flex flex-wrap gap-1">
+                                {property.amenities.slice(0, 5).map((amenity, i) => (
+                                  <span key={i} className="bg-gray-100 text-gray-600 text-[10px] font-medium px-2 py-0.5 rounded">
+                                    {amenity}
+                                  </span>
+                                ))}
+                                {property.amenities.length > 5 && (
+                                  <span className="text-gray-400 text-[10px] px-1 py-0.5">
+                                    +{property.amenities.length - 5} more
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Action Bar */}
+                            <div className="pt-3 border-t border-gray-100 flex flex-wrap items-center justify-between gap-3">
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleApproveProperty(property.id, property.title)}
+                                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition-all shadow-sm hover:shadow flex items-center gap-1.5 cursor-pointer"
+                                >
+                                  <CheckCircle2 className="w-4 h-4" />
+                                  <span>Approve & Publish Live</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleRejectProperty(property.id, property.title)}
+                                  className="px-4 py-2.5 bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer border border-red-200"
+                                >
+                                  <X className="w-4 h-4" />
+                                  <span>Reject & Remove</span>
+                                </button>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingProperty({ ...property });
+                                  setIsNewProperty(false);
+                                }}
+                                className="px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                                <span>Edit Details</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         )}
 
@@ -1587,10 +2171,12 @@ export default function AdminSecretPage({
                     }
                     className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3 py-2 text-sm font-semibold text-gray-900 focus:outline-none focus:border-[#D61F26]"
                   >
-                    <option value="ACTIVE">ACTIVE</option>
+                    <option value="ACTIVE">ACTIVE (Published Live)</option>
+                    <option value="PENDING_APPROVAL">PENDING_APPROVAL (Under Review)</option>
                     <option value="SOLD">SOLD</option>
                     <option value="RENTED">RENTED</option>
                     <option value="INACTIVE">INACTIVE</option>
+                    <option value="REJECTED">REJECTED</option>
                   </select>
                 </div>
               </div>

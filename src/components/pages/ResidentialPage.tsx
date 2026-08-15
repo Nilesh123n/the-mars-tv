@@ -17,7 +17,13 @@ export default function ResidentialPage({
   onToggleWishlist = () => {},
   onSelectProperty = () => {},
 }: ResidentialPageProps) {
-  const residentialProperties = properties.filter((p) => p.listingType !== 'COMMERCIAL');
+  const residentialProperties = properties.filter(
+    (p) =>
+      p.listingType !== 'COMMERCIAL' &&
+      p.status !== 'PENDING_APPROVAL' &&
+      p.status !== 'REJECTED' &&
+      p.status !== 'INACTIVE'
+  );
 
   const [search, setSearch] = useState('');
   const [bhkFilter, setBhkFilter] = useState<number | 'ALL'>('ALL');

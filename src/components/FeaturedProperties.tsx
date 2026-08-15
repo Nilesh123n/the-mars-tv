@@ -19,7 +19,13 @@ export default function FeaturedProperties({
 }: FeaturedPropertiesProps) {
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'APARTMENT' | 'VILLA' | 'COMMERCIAL' | 'PLOT'>('ALL');
 
-  const featuredList = properties.filter((p) => p.isFeatured);
+  const featuredList = properties.filter(
+    (p) =>
+      p.isFeatured &&
+      p.status !== 'PENDING_APPROVAL' &&
+      p.status !== 'REJECTED' &&
+      p.status !== 'INACTIVE'
+  );
 
   const filteredProperties = featuredList.filter((p) => {
     if (activeFilter === 'ALL') return true;

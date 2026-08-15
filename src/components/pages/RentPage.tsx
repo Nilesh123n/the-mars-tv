@@ -38,7 +38,13 @@ export default function RentPage({
 }: RentPageProps) {
   // Filter only RENT properties OR properties explicitly flagged for rent
   const rentalProperties = properties.filter(
-    (p) => p.listingType === 'RENT' || (p.priceLabel || '').toLowerCase().includes('/ mo') || (p.priceLabel || '').toLowerCase().includes('mo')
+    (p) =>
+      (p.listingType === 'RENT' ||
+        (p.priceLabel || '').toLowerCase().includes('/ mo') ||
+        (p.priceLabel || '').toLowerCase().includes('mo')) &&
+      p.status !== 'PENDING_APPROVAL' &&
+      p.status !== 'REJECTED' &&
+      p.status !== 'INACTIVE'
   );
 
   const [search, setSearch] = useState('');

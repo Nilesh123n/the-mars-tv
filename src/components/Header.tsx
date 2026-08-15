@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Home, Building2, Building, Newspaper, Megaphone, Phone, Heart, Menu, X, Calculator, KeyRound, HardHat } from 'lucide-react';
+import { Home, Building2, Building, Newspaper, Megaphone, Phone, Heart, Menu, X, PlusCircle, KeyRound, HardHat } from 'lucide-react';
 
 interface HeaderProps {
   currentView: string;
   onNavigate: (view: string) => void;
   wishlistCount: number;
   onOpenListProperty?: () => void;
-  onOpenEMICalculator: () => void;
+  onOpenEMICalculator?: () => void;
 }
 
 const navLinks = [
@@ -85,15 +85,15 @@ export default function Header({
           </nav>
 
           {/* Right Action Controls */}
-          <div className="hidden lg:flex items-center gap-1.5 xl:gap-2.5 flex-shrink-0">
-            {/* EMI Calculator Tool */}
+          <div className="hidden lg:flex items-center gap-2 xl:gap-3 flex-shrink-0">
+            {/* List Your Property Button (White Background, Red Text) */}
             <button
-              onClick={onOpenEMICalculator}
-              className="text-white hover:bg-white/15 px-2.5 xl:px-3 py-1.5 xl:py-2 rounded-xl text-[12px] xl:text-[13px] font-semibold transition-all flex items-center gap-1 xl:gap-1.5 border border-white/30 cursor-pointer whitespace-nowrap"
-              title="Calculate Home Loan EMI"
+              onClick={onOpenListProperty}
+              className="bg-white hover:bg-gray-100 text-[#D61F26] px-3.5 xl:px-4 py-2 xl:py-2 rounded-xl text-[12.5px] xl:text-[13.5px] font-black transition-all flex items-center gap-1.5 xl:gap-2 shadow-md hover:shadow-lg active:scale-95 cursor-pointer whitespace-nowrap border border-white"
+              title="List Your Property on The Mars TV"
             >
-              <Calculator className="w-4 h-4 xl:w-4.5 xl:h-4.5 text-white flex-shrink-0" />
-              <span>EMI Calc</span>
+              <PlusCircle className="w-4 h-4 xl:w-4.5 xl:h-4.5 text-[#D61F26] flex-shrink-0" />
+              <span>List Your Property</span>
             </button>
 
             {/* Wishlist Button */}
@@ -151,11 +151,11 @@ export default function Header({
           ))}
           <div className="pt-3 border-t border-red-700/60 flex flex-col gap-2">
             <button
-              onClick={() => { onOpenEMICalculator(); setMobileOpen(false); }}
-              className="w-full text-center py-2.5 border border-white/40 text-white hover:bg-white/10 rounded-[12px] text-[13px] font-bold flex items-center justify-center gap-2"
+              onClick={() => { onOpenListProperty?.(); setMobileOpen(false); }}
+              className="w-full text-center py-3 bg-white text-[#D61F26] hover:bg-gray-100 rounded-[14px] text-[14px] font-black flex items-center justify-center gap-2 shadow-md cursor-pointer active:scale-95 transition-all"
             >
-              <Calculator className="w-4 h-4 text-white" />
-              Calculate EMI
+              <PlusCircle className="w-4.5 h-4.5 text-[#D61F26]" />
+              <span>List Your Property</span>
             </button>
           </div>
         </div>

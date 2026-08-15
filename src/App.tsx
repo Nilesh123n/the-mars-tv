@@ -181,10 +181,16 @@ export default function App() {
   // Property Actions (Admin / User)
   const handleAddProperty = async (newProp: Partial<Property>) => {
     const fullProp = newProp as Property;
-    fullProp.id = `prop-${Date.now()}`;
+    if (!fullProp.id) {
+      fullProp.id = `prop-${Date.now()}`;
+    }
     const updated = await DataService.saveProperty(fullProp);
     setProperties(updated);
-    showToast(`Property "${fullProp.title}" published successfully!`);
+    if (fullProp.status === 'PENDING_APPROVAL') {
+      showToast(`Property "${fullProp.title}" submitted for verification!`);
+    } else {
+      showToast(`Property "${fullProp.title}" published successfully!`);
+    }
   };
 
   return (
