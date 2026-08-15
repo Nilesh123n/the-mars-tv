@@ -498,6 +498,46 @@ export class DataService {
   }
 
   // -----------------------------------------------------------------
+  // ADMIN PASSCODE MANAGEMENT
+  // -----------------------------------------------------------------
+  static getAdminPasscode(): string {
+    try {
+      const custom = localStorage.getItem('admin_portal_passcode');
+      if (custom && custom.trim()) return custom.trim();
+      const settings = readFromStorage<SiteSettings>('pr_site_settings_v2');
+      if (settings?.data?.adminPasscode && settings.data.adminPasscode.trim()) {
+        return settings.data.adminPasscode.trim();
+      }
+    } catch (e) {
+      // Fallback
+    }
+    return 'admin123';
+  }
+
+  static async setAdminPasscode(newPasscode: string): Promise<string> {
+    const trimmed = newPasscode.trim();
+    localStorage.setItem('admin_portal_passcode', trimmed);
+    const settings = await this.getSiteSettings();
+    const updatedSettings: SiteSettings = {
+      ...settings,
+      adminPasscode: trimmed,
+    };
+    await this.saveSiteSettings(updatedSettings);
+    return trimmed;
+  }
+
+  static async resetAdminPasscode(): Promise<string> {
+    localStorage.removeItem('admin_portal_passcode');
+    const settings = await this.getSiteSettings();
+    const updatedSettings: SiteSettings = {
+      ...settings,
+      adminPasscode: 'admin123',
+    };
+    await this.saveSiteSettings(updatedSettings);
+    return 'admin123';
+  }
+
+  // -----------------------------------------------------------------
   // 7. EXCLUSIVE PROJECTS
   // -----------------------------------------------------------------
   static async getProjects(forceRefresh = false): Promise<Project[]> {

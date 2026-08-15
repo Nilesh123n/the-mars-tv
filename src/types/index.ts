@@ -140,4 +140,5 @@ export interface SiteSettings {
   reraRegistrationNo: string;
   aboutText: string;
   activePromotionalBanner?: string;
+  adminPasscode?: string;
 }

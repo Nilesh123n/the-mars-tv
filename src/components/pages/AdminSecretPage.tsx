@@ -14,6 +14,7 @@ import {
   ArrowLeft,
   RefreshCw,
   Eye,
+  EyeOff,
   User,
   Save,
   LogOut,
@@ -31,9 +32,12 @@ import {
   FileText,
   DollarSign,
   ShieldCheck,
+  ShieldAlert,
   Layout,
   Upload,
-  Layers
+  Layers,
+  KeyRound,
+  Key
 } from 'lucide-react';
 import { Property, NewsItem, PRServiceItem, Lead, PropertyType, ListingType, PropertyStatus, ConstructionPackage, SiteSettings, LeadStatus } from '../../types';
 import { DataService } from '../../lib/dataService';
@@ -77,10 +81,22 @@ export default function AdminSecretPage({
 }: AdminSecretPageProps) {
   // Authentication State
   const [password, setPassword] = useState('');
+  const [showUnlockPass, setShowUnlockPass] = useState(false);
   const [isUnlocked, setIsUnlocked] = useState<boolean>(() => {
     return sessionStorage.getItem('admin_unlocked') === 'true';
   });
   const [authError, setAuthError] = useState('');
+  const [configuredPasscode, setConfiguredPasscode] = useState(() => DataService.getAdminPasscode());
+
+  // Password Management State
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [currentPassInput, setCurrentPassInput] = useState('');
+  const [newPassInput, setNewPassInput] = useState('');
+  const [confirmPassInput, setConfirmPassInput] = useState('');
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [showCurrentPass, setShowCurrentPass] = useState(false);
+  const [passChangeError, setPassChangeError] = useState('');
+  const [passChangeSuccess, setPassChangeSuccess] = useState('');
 
   // Active Admin Tab
   const [activeTab, setActiveTab] = useState<'properties' | 'news' | 'pr-services' | 'leads' | 'construction' | 'site-settings'>('properties');
@@ -125,13 +141,21 @@ export default function AdminSecretPage({
   // Authentication Handler
   const handleUnlock = (e: FormEvent) => {
     e.preventDefault();
-    if (password === 'admin123' || password === 'secret' || password === 'admin') {
+    const storedPasscode = DataService.getAdminPasscode();
+    const entered = password.trim();
+
+    if (
+      entered === storedPasscode ||
+      entered === 'admin123' ||
+      entered === 'secret' ||
+      entered === 'admin'
+    ) {
       setIsUnlocked(true);
       sessionStorage.setItem('admin_unlocked', 'true');
       setAuthError('');
       showToast('Admin Portal Unlocked successfully!');
     } else {
-      setAuthError('Incorrect Password! Try "admin123"');
+      setAuthError(`Incorrect Password! If forgotten, use master default "admin123"`);
     }
   };
 
@@ -140,6 +164,66 @@ export default function AdminSecretPage({
     sessionStorage.removeItem('admin_unlocked');
     setPassword('');
     showToast('Admin Portal locked.');
+  };
+
+  // Password Management Handlers
+  const handleChangePassword = async (e: FormEvent) => {
+    e.preventDefault();
+    setPassChangeError('');
+    setPassChangeSuccess('');
+
+    const activePass = DataService.getAdminPasscode();
+    // Validate current password if active is not default or if user provided it
+    if (
+      activePass &&
+      activePass !== 'admin123' &&
+      currentPassInput.trim() !== activePass &&
+      currentPassInput.trim() !== 'admin123'
+    ) {
+      setPassChangeError('Current password does not match.');
+      return;
+    }
+
+    if (!newPassInput || newPassInput.trim().length < 4) {
+      setPassChangeError('New password must be at least 4 characters long.');
+      return;
+    }
+
+    if (newPassInput.trim() !== confirmPassInput.trim()) {
+      setPassChangeError('New password and confirm password do not match.');
+      return;
+    }
+
+    try {
+      const savedPass = await DataService.setAdminPasscode(newPassInput.trim());
+      setConfiguredPasscode(savedPass);
+      setSettingsForm((prev) => ({ ...prev, adminPasscode: savedPass }));
+      setPassChangeSuccess('Admin Portal password updated successfully!');
+      showToast('Admin Portal password updated successfully!');
+      setTimeout(() => {
+        setShowPasswordModal(false);
+        setPassChangeSuccess('');
+        setCurrentPassInput('');
+        setNewPassInput('');
+        setConfirmPassInput('');
+      }, 1400);
+    } catch (err) {
+      setPassChangeError('Failed to save password. Please try again.');
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (confirm('Are you sure you want to reset the admin portal password back to default "admin123"?')) {
+      const resetVal = await DataService.resetAdminPasscode();
+      setConfiguredPasscode(resetVal);
+      setSettingsForm((prev) => ({ ...prev, adminPasscode: resetVal }));
+      setCurrentPassInput('');
+      setNewPassInput('');
+      setConfirmPassInput('');
+      setPassChangeError('');
+      setPassChangeSuccess('Password reset to default "admin123"');
+      showToast('Admin password reset to default "admin123"');
+    }
   };
 
   // Supabase Config Handler
@@ -401,23 +485,40 @@ export default function AdminSecretPage({
               </label>
               <div className="relative">
                 <input
-                  type="password"
+                  type={showUnlockPass ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter passcode (e.g. admin123)"
-                  className="w-full bg-[#111111] border border-gray-700 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#D61F26] transition-colors"
+                  placeholder="Enter admin passcode"
+                  className="w-full bg-[#111111] border border-gray-700 rounded-xl pl-4 pr-11 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#D61F26] transition-colors"
                   autoFocus
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowUnlockPass(!showUnlockPass)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200 p-1 cursor-pointer"
+                  title={showUnlockPass ? "Hide Password" : "Show Password"}
+                >
+                  {showUnlockPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
               {authError && (
                 <p className="text-red-400 text-xs mt-2 font-medium flex items-center gap-1">
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  {authError}
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{authError}</span>
                 </p>
               )}
               <div className="bg-gray-800/60 rounded-xl p-3 mt-3 border border-gray-700/60 text-[11.5px] text-gray-300 flex justify-between items-center">
-                <span>Default Passcode:</span>
-                <code className="bg-black/60 text-[#D61F26] px-2 py-0.5 rounded font-mono font-bold">admin123</code>
+                <span className="flex items-center gap-1.5">
+                  <KeyRound className="w-3.5 h-3.5 text-amber-400" />
+                  {configuredPasscode && configuredPasscode !== 'admin123'
+                    ? 'Custom Passcode Active'
+                    : 'Default Passcode:'}
+                </span>
+                <code className="bg-black/60 text-[#D61F26] px-2 py-0.5 rounded font-mono font-bold">
+                  {configuredPasscode && configuredPasscode !== 'admin123'
+                    ? '•••••••• (or master: admin123)'
+                    : 'admin123'}
+                </code>
               </div>
             </div>
 
@@ -483,6 +584,22 @@ export default function AdminSecretPage({
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={() => {
+                setPassChangeError('');
+                setPassChangeSuccess('');
+                setCurrentPassInput('');
+                setNewPassInput('');
+                setConfirmPassInput('');
+                setShowPasswordModal(true);
+              }}
+              className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-amber-300 hover:text-amber-200 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer border border-gray-700"
+              title="Set / Change Admin Password"
+            >
+              <KeyRound className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden sm:inline">Set Password</span>
+            </button>
+
             <button
               onClick={() => setShowSupabaseModal(true)}
               className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer border border-gray-700"
@@ -1022,164 +1139,295 @@ export default function AdminSecretPage({
 
         {/* TAB 6: SITE SETTINGS & PAGE DETAILS */}
         {activeTab === 'site-settings' && (
-          <div className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 shadow-sm max-w-4xl mx-auto">
-            <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-200">
-              <div className="p-2.5 bg-[#D61F26]/10 text-[#D61F26] rounded-xl">
-                <Layout className="w-6 h-6" />
+          <div className="space-y-6 max-w-4xl mx-auto">
+            {/* ADMIN SECURITY & PASSCODE MANAGEMENT CARD */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 shadow-sm">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-gray-200">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-amber-500/10 text-amber-600 rounded-xl border border-amber-500/20">
+                    <KeyRound className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-black text-gray-900">Admin Portal Password & Security</h2>
+                    <p className="text-xs text-gray-500">
+                      Set a custom password to protect your /admin-secret management portal.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`text-[11px] font-bold px-3 py-1 rounded-full uppercase border flex items-center gap-1.5 ${
+                      configuredPasscode && configuredPasscode !== 'admin123'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : 'bg-amber-50 text-amber-700 border-amber-200'
+                    }`}
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    {configuredPasscode && configuredPasscode !== 'admin123'
+                      ? 'Custom Password Active'
+                      : 'Default Password (admin123)'}
+                  </span>
+                </div>
               </div>
-              <div>
-                <h2 className="text-lg font-black text-gray-900">Global Website Pages & Contact Details</h2>
-                <p className="text-xs text-gray-500">
-                  Update site brand name, hero headlines, phone numbers, email, and RERA registration displayed across all pages.
-                </p>
-              </div>
+
+              <form onSubmit={handleChangePassword} className="space-y-4">
+                {passChangeError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-semibold flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{passChangeError}</span>
+                  </div>
+                )}
+
+                {passChangeSuccess && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-xs font-semibold flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>{passChangeSuccess}</span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                      Current Password
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showCurrentPass ? 'text' : 'password'}
+                        value={currentPassInput}
+                        onChange={(e) => setCurrentPassInput(e.target.value)}
+                        placeholder="Current (default: admin123)"
+                        className="w-full bg-gray-50 border border-gray-300 rounded-xl pl-3 pr-9 py-2.5 text-xs font-medium text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPass(!showCurrentPass)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 cursor-pointer"
+                      >
+                        {showCurrentPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                      New Password
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showNewPass ? 'text' : 'password'}
+                        value={newPassInput}
+                        onChange={(e) => setNewPassInput(e.target.value)}
+                        placeholder="Enter new password (min 4 chars)"
+                        required
+                        className="w-full bg-gray-50 border border-gray-300 rounded-xl pl-3 pr-9 py-2.5 text-xs font-medium text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPass(!showNewPass)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 cursor-pointer"
+                      >
+                        {showNewPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                      Confirm New Password
+                    </label>
+                    <input
+                      type={showNewPass ? 'text' : 'password'}
+                      value={confirmPassInput}
+                      onChange={(e) => setConfirmPassInput(e.target.value)}
+                      placeholder="Re-type new password"
+                      required
+                      className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3 py-2.5 text-xs font-medium text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 flex flex-wrap items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={handleResetPassword}
+                    className="px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl border border-gray-200 transition-colors cursor-pointer flex items-center gap-1.5"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 text-gray-500" />
+                    <span>Reset to Default (admin123)</span>
+                  </button>
+
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-gray-900 hover:bg-black text-white text-xs font-bold rounded-xl transition-all shadow cursor-pointer flex items-center gap-1.5"
+                  >
+                    <KeyRound className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Update Admin Password</span>
+                  </button>
+                </div>
+              </form>
             </div>
 
-            <form onSubmit={handleSaveSiteSettings} className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                    Website Name
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={settingsForm.siteName}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, siteName: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-2.5 text-sm font-bold text-gray-900 focus:outline-none focus:border-[#D61F26]"
-                  />
+            {/* GLOBAL WEBSITE DETAILS CARD */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 shadow-sm">
+              <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-200">
+                <div className="p-2.5 bg-[#D61F26]/10 text-[#D61F26] rounded-xl">
+                  <Layout className="w-6 h-6" />
                 </div>
-
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                    Tagline
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={settingsForm.tagline}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, tagline: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-2.5 text-sm font-bold text-gray-900 focus:outline-none focus:border-[#D61F26]"
-                  />
+                  <h2 className="text-lg font-black text-gray-900">Global Website Pages & Contact Details</h2>
+                  <p className="text-xs text-gray-500">
+                    Update site brand name, hero headlines, phone numbers, email, and RERA registration displayed across all pages.
+                  </p>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                  Hero Main Headline
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={settingsForm.heroHeadline}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, heroHeadline: e.target.value })}
-                  className="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-2.5 text-sm font-bold text-gray-900 focus:outline-none focus:border-[#D61F26]"
-                />
-              </div>
+              <form onSubmit={handleSaveSiteSettings} className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                      Website Name
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={settingsForm.siteName}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, siteName: e.target.value })}
+                      className="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-2.5 text-sm font-bold text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                    />
+                  </div>
 
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                  Hero Subheadline
-                </label>
-                <textarea
-                  rows={2}
-                  required
-                  value={settingsForm.heroSubheadline}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, heroSubheadline: e.target.value })}
-                  className="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-2.5 text-sm font-medium text-gray-900 focus:outline-none focus:border-[#D61F26]"
-                />
-              </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                      Tagline
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={settingsForm.tagline}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, tagline: e.target.value })}
+                      className="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-2.5 text-sm font-bold text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                    />
+                  </div>
+                </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                    Primary Phone
+                    Hero Main Headline
                   </label>
                   <input
                     type="text"
                     required
-                    value={settingsForm.phonePrimary}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, phonePrimary: e.target.value })}
+                    value={settingsForm.heroHeadline}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, heroHeadline: e.target.value })}
                     className="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-2.5 text-sm font-bold text-gray-900 focus:outline-none focus:border-[#D61F26]"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                    WhatsApp Number
+                    Hero Subheadline
                   </label>
-                  <input
-                    type="text"
+                  <textarea
+                    rows={2}
                     required
-                    value={settingsForm.whatsappNumber}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, whatsappNumber: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-2.5 text-sm font-bold text-gray-900 focus:outline-none focus:border-[#D61F26]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                    Contact Email
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={settingsForm.emailContact}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, emailContact: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-2.5 text-sm font-bold text-gray-900 focus:outline-none focus:border-[#D61F26]"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                    RERA Registration Number
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={settingsForm.reraRegistrationNo}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, reraRegistrationNo: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-2.5 text-sm font-bold text-gray-900 focus:outline-none focus:border-[#D61F26]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                    Office Address
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={settingsForm.officeAddress}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, officeAddress: e.target.value })}
+                    value={settingsForm.heroSubheadline}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, heroSubheadline: e.target.value })}
                     className="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-2.5 text-sm font-medium text-gray-900 focus:outline-none focus:border-[#D61F26]"
                   />
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                  About Us Text
-                </label>
-                <textarea
-                  rows={4}
-                  required
-                  value={settingsForm.aboutText}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, aboutText: e.target.value })}
-                  className="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-2.5 text-sm font-medium text-gray-900 focus:outline-none focus:border-[#D61F26]"
-                />
-              </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                      Primary Phone
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={settingsForm.phonePrimary}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, phonePrimary: e.target.value })}
+                      className="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-2.5 text-sm font-bold text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                    />
+                  </div>
 
-              <button
-                type="submit"
-                className="w-full py-3.5 bg-[#D61F26] hover:bg-[#B01920] text-white font-bold text-sm rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Save className="w-4 h-4" />
-                <span>Save Site Settings</span>
-              </button>
-            </form>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                      WhatsApp Number
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={settingsForm.whatsappNumber}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, whatsappNumber: e.target.value })}
+                      className="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-2.5 text-sm font-bold text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                      Contact Email
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={settingsForm.emailContact}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, emailContact: e.target.value })}
+                      className="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-2.5 text-sm font-bold text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                      RERA Registration Number
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={settingsForm.reraRegistrationNo}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, reraRegistrationNo: e.target.value })}
+                      className="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-2.5 text-sm font-bold text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                      Office Address
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={settingsForm.officeAddress}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, officeAddress: e.target.value })}
+                      className="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-2.5 text-sm font-medium text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                    About Us Text
+                  </label>
+                  <textarea
+                    rows={4}
+                    required
+                    value={settingsForm.aboutText}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, aboutText: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-2.5 text-sm font-medium text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-3.5 bg-[#D61F26] hover:bg-[#B01920] text-white font-bold text-sm rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Save Site Settings</span>
+                </button>
+              </form>
+            </div>
           </div>
         )}
 
@@ -1600,6 +1848,140 @@ export default function AdminSecretPage({
                 >
                   <Save className="w-4 h-4" />
                   <span>Save News Article</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* ADMIN PASSWORD CONFIG MODAL                               */}
+      {/* ========================================================= */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#1A1A1A] text-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-gray-800 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/30">
+                  <KeyRound className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-extrabold text-white">Set Admin Passcode</h3>
+                  <p className="text-xs text-gray-400">Manage security access for /admin-secret</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowPasswordModal(false)}
+                className="p-1.5 text-gray-400 hover:text-white rounded-full transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mb-4 bg-gray-800/70 p-3 rounded-xl border border-gray-700/80 text-xs flex items-center justify-between">
+              <span className="text-gray-300 flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                Current Status:
+              </span>
+              <span className={`font-bold px-2 py-0.5 rounded text-[11px] ${
+                configuredPasscode && configuredPasscode !== 'admin123'
+                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                  : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+              }`}>
+                {configuredPasscode && configuredPasscode !== 'admin123' ? 'Custom Passcode' : 'Default (admin123)'}
+              </span>
+            </div>
+
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              {passChangeError && (
+                <div className="p-3 bg-red-900/30 border border-red-500/50 rounded-xl text-red-300 text-xs font-semibold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+                  <span>{passChangeError}</span>
+                </div>
+              )}
+
+              {passChangeSuccess && (
+                <div className="p-3 bg-emerald-900/30 border border-emerald-500/50 rounded-xl text-emerald-300 text-xs font-semibold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                  <span>{passChangeSuccess}</span>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-gray-300 uppercase mb-1">
+                  Current Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showCurrentPass ? 'text' : 'password'}
+                    placeholder="Enter current passcode (default: admin123)"
+                    value={currentPassInput}
+                    onChange={(e) => setCurrentPassInput(e.target.value)}
+                    className="w-full bg-[#111111] border border-gray-700 rounded-xl pl-3.5 pr-10 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#D61F26]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPass(!showCurrentPass)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200 p-1 cursor-pointer"
+                  >
+                    {showCurrentPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-300 uppercase mb-1">
+                  New Passcode
+                </label>
+                <div className="relative">
+                  <input
+                    type={showNewPass ? 'text' : 'password'}
+                    placeholder="Enter new password (min 4 characters)"
+                    required
+                    value={newPassInput}
+                    onChange={(e) => setNewPassInput(e.target.value)}
+                    className="w-full bg-[#111111] border border-gray-700 rounded-xl pl-3.5 pr-10 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#D61F26]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPass(!showNewPass)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200 p-1 cursor-pointer"
+                  >
+                    {showNewPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-300 uppercase mb-1">
+                  Confirm New Passcode
+                </label>
+                <input
+                  type={showNewPass ? 'text' : 'password'}
+                  placeholder="Re-type new passcode"
+                  required
+                  value={confirmPassInput}
+                  onChange={(e) => setConfirmPassInput(e.target.value)}
+                  className="w-full bg-[#111111] border border-gray-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#D61F26]"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-between items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleResetPassword}
+                  className="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-semibold rounded-xl border border-gray-700 transition-colors cursor-pointer"
+                >
+                  Reset to Default
+                </button>
+
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-[#D61F26] hover:bg-[#B01920] text-white text-xs font-bold rounded-xl cursor-pointer shadow-md transition-all flex items-center gap-1.5"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Save Password</span>
                 </button>
               </div>
             </form>
