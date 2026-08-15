@@ -3,6 +3,7 @@ import {
   Lock,
   Unlock,
   Building,
+  Building2,
   Newspaper,
   Megaphone,
   Edit3,
@@ -37,12 +38,22 @@ import {
   Upload,
   Layers,
   KeyRound,
-  Key
+  Key,
+  Home,
+  CheckSquare
 } from 'lucide-react';
 import { Property, NewsItem, PRServiceItem, Lead, PropertyType, ListingType, PropertyStatus, ConstructionPackage, SiteSettings, LeadStatus } from '../../types';
 import { DataService } from '../../lib/dataService';
 import { isSupabaseConfigured, getSupabaseCredentials, saveSupabaseConfig } from '../../lib/supabase';
 import { useDebounce } from '../../hooks/useDebounce';
+import LocationFilterBar, { LocationFilterSelection } from '../common/LocationFilterBar';
+import {
+  INDIA_LOCATION_DATA,
+  INTERNATIONAL_LOCATION_DATA,
+  checkLocationMatch,
+  StateRegionItem,
+  CityItem
+} from '../../data/locationHierarchy';
 
 interface AdminSecretPageProps {
   properties: Property[];
@@ -111,6 +122,42 @@ export default function AdminSecretPage({
   const [propertyStatusFilter, setPropertyStatusFilter] = useState<
     'ALL' | 'PENDING_APPROVAL' | 'ACTIVE' | 'SOLD' | 'INACTIVE' | 'REJECTED'
   >('ALL');
+
+  // Property Section Category Sub-Tab (All, Residential, Commercial, Rental)
+  const [propertyCategoryTab, setPropertyCategoryTab] = useState<
+    'ALL' | 'RESIDENTIAL' | 'COMMERCIAL' | 'RENTAL'
+  >('ALL');
+
+  // Location Filter Selections for Properties, Approvals, and News
+  const [propertyLocationSelection, setPropertyLocationSelection] = useState<LocationFilterSelection>({
+    region: 'ALL',
+    stateId: null,
+    stateName: null,
+    cityId: null,
+    cityName: null
+  });
+
+  const [approvalLocationSelection, setApprovalLocationSelection] = useState<LocationFilterSelection>({
+    region: 'ALL',
+    stateId: null,
+    stateName: null,
+    cityId: null,
+    cityName: null
+  });
+
+  const [newsLocationSelection, setNewsLocationSelection] = useState<LocationFilterSelection>({
+    region: 'ALL',
+    stateId: null,
+    stateName: null,
+    cityId: null,
+    cityName: null
+  });
+
+  // Modal Location State for Property and News Forms
+  const [propModalRegion, setPropModalRegion] = useState<'India' | 'International'>('India');
+  const [propModalStateId, setPropModalStateId] = useState<string>('madhya-pradesh');
+  const [newsModalRegion, setNewsModalRegion] = useState<'India' | 'International'>('India');
+  const [newsModalStateId, setNewsModalStateId] = useState<string>('madhya-pradesh');
 
   // Modals & Editing States
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
@@ -354,23 +401,85 @@ export default function AdminSecretPage({
     showToast(`All ${pendingList.length} pending properties approved & published!`);
   };
 
-  const handleCreateNewProperty = () => {
+  const openEditProperty = (prop: Property) => {
+    const query = `${prop.city || ''} ${prop.location || ''}`.toLowerCase();
+    let foundRegion: 'India' | 'International' = 'India';
+    let foundStateId = 'madhya-pradesh';
+
+    for (const st of INTERNATIONAL_LOCATION_DATA) {
+      if (
+        query.includes(st.name.toLowerCase()) ||
+        st.cities.some(
+          (c) =>
+            query.includes(c.name.toLowerCase()) ||
+            (c.keywords && c.keywords.some((a) => query.includes(a.toLowerCase())))
+        )
+      ) {
+        foundRegion = 'International';
+        foundStateId = st.id;
+        break;
+      }
+    }
+
+    if (foundRegion === 'India') {
+      for (const st of INDIA_LOCATION_DATA) {
+        if (
+          query.includes(st.name.toLowerCase()) ||
+          st.cities.some(
+            (c) =>
+              query.includes(c.name.toLowerCase()) ||
+              (c.keywords && c.keywords.some((a) => query.includes(a.toLowerCase())))
+          )
+        ) {
+          foundStateId = st.id;
+          break;
+        }
+      }
+    }
+
+    setPropModalRegion(foundRegion);
+    setPropModalStateId(foundStateId);
+    setEditingProperty({ ...prop });
+    setIsNewProperty(false);
+  };
+
+  const handleCreateNewProperty = (defaultType?: 'RESIDENTIAL' | 'COMMERCIAL' | 'RENTAL') => {
+    let propType: PropertyType = 'APARTMENT';
+    let listType: ListingType = 'BUY';
+    let title = 'Luxury 3 BHK Residential Apartment';
+    let priceLabel = '₹1.50 Cr';
+
+    if (defaultType === 'COMMERCIAL' || propertyCategoryTab === 'COMMERCIAL') {
+      propType = 'OFFICE';
+      listType = 'COMMERCIAL';
+      title = 'Grade-A Commercial Corporate Office Space';
+      priceLabel = '₹3.20 Cr';
+    } else if (defaultType === 'RENTAL' || propertyCategoryTab === 'RENTAL') {
+      propType = 'APARTMENT';
+      listType = 'RENT';
+      title = 'Fully Furnished Luxury 3 BHK for Rent';
+      priceLabel = '₹45,000 / mo';
+    }
+
+    setPropModalRegion('India');
+    setPropModalStateId('madhya-pradesh');
+
     const newProp: Property = {
       id: `prop-${Date.now()}`,
-      title: 'New Commercial/Residential Property',
+      title,
       slug: `new-property-${Date.now()}`,
       description: 'Enter detailed property description here...',
-      price: 15000000,
-      priceLabel: '₹1.50 Cr',
-      location: 'Vijay Nagar, Indore',
+      price: listType === 'RENT' ? 45000 : 15000000,
+      priceLabel,
+      location: 'Vijay Nagar, Indore, Madhya Pradesh',
       city: 'Indore',
       area: 1500,
       areaUnit: 'sq.ft',
-      bedrooms: 3,
+      bedrooms: propType === 'OFFICE' ? 0 : 3,
       bathrooms: 3,
       parking: 1,
-      propertyType: 'APARTMENT',
-      listingType: 'BUY',
+      propertyType: propType,
+      listingType: listType,
       status: 'ACTIVE',
       isSponsored: false,
       isFeatured: true,
@@ -394,6 +503,32 @@ export default function AdminSecretPage({
   // -------------------------------------------------------------
   // 2. NEWS ACTIONS
   // -------------------------------------------------------------
+  const openEditNews = (item: NewsItem) => {
+    const reg: 'India' | 'International' = item.region === 'International' ? 'International' : 'India';
+    setNewsModalRegion(reg);
+
+    const query = `${item.title || ''} ${item.excerpt || ''} ${item.content || ''}`.toLowerCase();
+    let foundStateId = reg === 'International' ? 'uae-middle-east' : 'madhya-pradesh';
+    const list = reg === 'International' ? INTERNATIONAL_LOCATION_DATA : INDIA_LOCATION_DATA;
+    for (const st of list) {
+      if (
+        query.includes(st.name.toLowerCase()) ||
+        st.cities.some(
+          (c) =>
+            query.includes(c.name.toLowerCase()) ||
+            (c.keywords && c.keywords.some((a) => query.includes(a.toLowerCase())))
+        )
+      ) {
+        foundStateId = st.id;
+        break;
+      }
+    }
+
+    setNewsModalStateId(foundStateId);
+    setEditingNews({ ...item });
+    setIsNewNews(false);
+  };
+
   const handleSaveNews = async (e: FormEvent) => {
     e.preventDefault();
     if (!editingNews) return;
@@ -414,6 +549,9 @@ export default function AdminSecretPage({
   };
 
   const handleCreateNewNews = () => {
+    setNewsModalRegion('India');
+    setNewsModalStateId('madhya-pradesh');
+
     const newArticle: NewsItem = {
       id: `news-${Date.now()}`,
       title: 'Real Estate Growth Trends 2026',
@@ -881,10 +1019,105 @@ export default function AdminSecretPage({
         {/* TAB 1: PROPERTIES MANAGEMENT */}
         {activeTab === 'properties' && (
           <div className="space-y-4">
+            {/* Category Sub-Tabs (All, Residential, Commercial, Rental) */}
+            <div className="bg-white rounded-2xl p-2 border border-gray-200 shadow-xs flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-1.5 overflow-x-auto">
+                {[
+                  { id: 'ALL', label: 'All Properties', icon: Building2, count: properties.length },
+                  {
+                    id: 'RESIDENTIAL',
+                    label: '🏠 Residential',
+                    icon: Home,
+                    count: properties.filter(
+                      (p) =>
+                        p.listingType !== 'COMMERCIAL' &&
+                        p.propertyType !== 'OFFICE' &&
+                        p.propertyType !== 'RETAIL' &&
+                        p.propertyType !== 'WAREHOUSE'
+                    ).length,
+                  },
+                  {
+                    id: 'COMMERCIAL',
+                    label: '🏢 Commercial',
+                    icon: Building,
+                    count: properties.filter(
+                      (p) =>
+                        p.listingType === 'COMMERCIAL' ||
+                        p.propertyType === 'OFFICE' ||
+                        p.propertyType === 'RETAIL' ||
+                        p.propertyType === 'WAREHOUSE'
+                    ).length,
+                  },
+                  {
+                    id: 'RENTAL',
+                    label: '🔑 Rental & Lease',
+                    icon: KeyRound,
+                    count: properties.filter(
+                      (p) =>
+                        p.listingType === 'RENT' ||
+                        p.listingType === 'LEASE' ||
+                        (p.priceLabel || '').toLowerCase().includes('/ mo')
+                    ).length,
+                  },
+                ].map((subTab) => {
+                  const isActive = propertyCategoryTab === subTab.id;
+                  return (
+                    <button
+                      key={subTab.id}
+                      onClick={() => setPropertyCategoryTab(subTab.id as any)}
+                      className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+                        isActive
+                          ? 'bg-[#D61F26] text-white shadow-sm'
+                          : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200/70'
+                      }`}
+                    >
+                      <span>{subTab.label}</span>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                          isActive ? 'bg-black/30 text-white' : 'bg-gray-200 text-gray-800'
+                        }`}
+                      >
+                        {subTab.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Quick Add Specific Category Button */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleCreateNewProperty(propertyCategoryTab === 'ALL' ? 'RESIDENTIAL' : (propertyCategoryTab as any))}
+                  className="px-3.5 py-1.5 bg-[#111111] hover:bg-black text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5 text-amber-400" />
+                  <span>
+                    Add {propertyCategoryTab === 'COMMERCIAL' ? 'Commercial' : propertyCategoryTab === 'RENTAL' ? 'Rental' : 'Residential'}
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* India & International State & City Filter Bar */}
+            <LocationFilterBar
+              selection={propertyLocationSelection}
+              onChange={(newSel) => setPropertyLocationSelection(newSel)}
+              resultCount={properties.length}
+              itemTypeLabel={
+                propertyCategoryTab === 'COMMERCIAL'
+                  ? 'Commercial Spaces'
+                  : propertyCategoryTab === 'RENTAL'
+                  ? 'Rental Properties'
+                  : propertyCategoryTab === 'RESIDENTIAL'
+                  ? 'Residential Properties'
+                  : 'Properties'
+              }
+            />
+
             {/* Status Filter Chips */}
             <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-gray-200">
               {[
-                { id: 'ALL', label: 'All Properties', count: properties.length },
+                { id: 'ALL', label: 'All Statuses', count: properties.length },
                 {
                   id: 'PENDING_APPROVAL',
                   label: 'Pending Approval',
@@ -937,6 +1170,32 @@ export default function AdminSecretPage({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {properties
                 .filter((p) => {
+                  // Category tab filter
+                  if (propertyCategoryTab === 'RESIDENTIAL') {
+                    if (
+                      p.listingType === 'COMMERCIAL' ||
+                      p.propertyType === 'OFFICE' ||
+                      p.propertyType === 'RETAIL' ||
+                      p.propertyType === 'WAREHOUSE'
+                    )
+                      return false;
+                  } else if (propertyCategoryTab === 'COMMERCIAL') {
+                    if (
+                      p.listingType !== 'COMMERCIAL' &&
+                      p.propertyType !== 'OFFICE' &&
+                      p.propertyType !== 'RETAIL' &&
+                      p.propertyType !== 'WAREHOUSE'
+                    )
+                      return false;
+                  } else if (propertyCategoryTab === 'RENTAL') {
+                    if (
+                      p.listingType !== 'RENT' &&
+                      p.listingType !== 'LEASE' &&
+                      !(p.priceLabel || '').toLowerCase().includes('/ mo')
+                    )
+                      return false;
+                  }
+
                   // Status filter
                   if (propertyStatusFilter === 'PENDING_APPROVAL') {
                     if (p.status !== 'PENDING_APPROVAL') return false;
@@ -945,6 +1204,15 @@ export default function AdminSecretPage({
                   } else if (propertyStatusFilter === 'SOLD') {
                     if (p.status !== 'SOLD' && p.status !== 'INACTIVE' && p.status !== 'REJECTED') return false;
                   }
+
+                  // India & International State/City Location filter
+                  const matchesLocation = checkLocationMatch(
+                    p,
+                    propertyLocationSelection.region,
+                    propertyLocationSelection.stateId,
+                    propertyLocationSelection.cityId
+                  );
+                  if (!matchesLocation) return false;
 
                   // Search term filter
                   const matchesSearch =
@@ -1119,10 +1387,7 @@ export default function AdminSecretPage({
                           </span>
                           <div className="flex items-center gap-2">
                             <button
-                              onClick={() => {
-                                setEditingProperty({ ...property });
-                                setIsNewProperty(false);
-                              }}
+                              onClick={() => openEditProperty(property)}
                               className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold text-xs rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
                             >
                               <Edit3 className="w-3.5 h-3.5" />
@@ -1175,6 +1440,14 @@ export default function AdminSecretPage({
               </div>
             </div>
 
+            {/* India & International State & City Filter Bar for Approval Desk */}
+            <LocationFilterBar
+              selection={approvalLocationSelection}
+              onChange={(newSel) => setApprovalLocationSelection(newSel)}
+              resultCount={properties.filter((p) => p.status === 'PENDING_APPROVAL').length}
+              itemTypeLabel="Pending Approval Listings"
+            />
+
             {/* Metrics Overview Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-xs">
@@ -1206,8 +1479,17 @@ export default function AdminSecretPage({
             {/* Pending List Cards */}
             {(() => {
               const pendingList = properties.filter((p) => p.status === 'PENDING_APPROVAL');
-              const filteredPending = pendingList.filter(
-                (p) =>
+              const filteredPending = pendingList.filter((p) => {
+                // Location filter
+                const matchesLocation = checkLocationMatch(
+                  p,
+                  approvalLocationSelection.region,
+                  approvalLocationSelection.stateId,
+                  approvalLocationSelection.cityId
+                );
+                if (!matchesLocation) return false;
+
+                return (
                   (p.title || '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
                   (p.location || '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
                   (p.city || '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
@@ -1216,7 +1498,8 @@ export default function AdminSecretPage({
                   (p.reraNumber || '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
                   (p.submissionId || '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
                   (p.id || '').toLowerCase().includes(debouncedSearch.toLowerCase())
-              );
+                );
+              });
 
               if (pendingList.length === 0) {
                 return (
@@ -1247,14 +1530,23 @@ export default function AdminSecretPage({
                   <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center space-y-3">
                     <AlertCircle className="w-8 h-8 text-gray-400 mx-auto" />
                     <p className="text-xs text-gray-600 font-medium">
-                      No pending properties match search "{debouncedSearch}".
+                      No pending properties match the selected location and search "{debouncedSearch}".
                     </p>
-                    <button
-                      onClick={() => setSearchInput('')}
-                      className="text-xs text-[#D61F26] font-bold hover:underline cursor-pointer"
-                    >
-                      Clear Search Filter
-                    </button>
+                    <div className="flex items-center justify-center gap-3">
+                      <button
+                        onClick={() => setApprovalLocationSelection({ region: 'India', stateId: null, cityId: null })}
+                        className="text-xs text-[#D61F26] font-bold hover:underline cursor-pointer"
+                      >
+                        Reset Location Filter
+                      </button>
+                      <span className="text-gray-300">•</span>
+                      <button
+                        onClick={() => setSearchInput('')}
+                        className="text-xs text-gray-600 font-bold hover:underline cursor-pointer"
+                      >
+                        Clear Search
+                      </button>
+                    </div>
                   </div>
                 );
               }
@@ -1461,10 +1753,7 @@ export default function AdminSecretPage({
 
                               <button
                                 type="button"
-                                onClick={() => {
-                                  setEditingProperty({ ...property });
-                                  setIsNewProperty(false);
-                                }}
+                                onClick={() => openEditProperty(property)}
                                 className="px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
                               >
                                 <Edit3 className="w-3.5 h-3.5" />
@@ -1485,14 +1774,33 @@ export default function AdminSecretPage({
         {/* TAB 2: NEWS MANAGEMENT */}
         {activeTab === 'news' && (
           <div className="space-y-4">
+            {/* India & International State & City Filter Bar for News */}
+            <LocationFilterBar
+              selection={newsLocationSelection}
+              onChange={(newSel) => setNewsLocationSelection(newSel)}
+              resultCount={newsItems.length}
+              itemTypeLabel="News & Market Insights"
+            />
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {newsItems
-                .filter(
-                  (n) =>
+                .filter((n) => {
+                  // Location hierarchy filter for News
+                  const matchesLocation = checkLocationMatch(
+                    n,
+                    newsLocationSelection.region,
+                    newsLocationSelection.stateId,
+                    newsLocationSelection.cityId
+                  );
+                  if (!matchesLocation) return false;
+
+                  return (
                     (n.title || '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
                     (n.category || '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-                    (n.author || '').toLowerCase().includes(debouncedSearch.toLowerCase())
-                )
+                    (n.author || '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                    (n.excerpt || '').toLowerCase().includes(debouncedSearch.toLowerCase())
+                  );
+                })
                 .map((item) => (
                   <div
                     key={item.id}
@@ -1539,10 +1847,7 @@ export default function AdminSecretPage({
                       </span>
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => {
-                            setEditingNews({ ...item });
-                            setIsNewNews(false);
-                          }}
+                          onClick={() => openEditNews(item)}
                           className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold text-xs rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
@@ -2078,10 +2383,122 @@ export default function AdminSecretPage({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* INDIA & INTERNATIONAL LOCATION SELECTOR BLOCK */}
+              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-[#D61F26]" />
+                    <span>State & City Hierarchy Location</span>
+                  </span>
+                  <span className="text-[10px] text-gray-400 font-medium">India & Global Coverage</span>
+                </div>
+
+                {/* Country / Region Toggle */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPropModalRegion('India');
+                      const firstState = INDIA_LOCATION_DATA[0];
+                      setPropModalStateId(firstState.id);
+                      setEditingProperty({
+                        ...editingProperty,
+                        city: firstState.cities[0].name,
+                        location: editingProperty.location.includes(',') ? editingProperty.location : `${editingProperty.location || firstState.cities[0].name}, ${firstState.name}`,
+                      });
+                    }}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      propModalRegion === 'India'
+                        ? 'bg-[#D61F26] text-white shadow-xs'
+                        : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100'
+                    }`}
+                  >
+                    <span>🇮🇳 India States & Cities</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPropModalRegion('International');
+                      const firstIntl = INTERNATIONAL_LOCATION_DATA[0];
+                      setPropModalStateId(firstIntl.id);
+                      setEditingProperty({
+                        ...editingProperty,
+                        city: firstIntl.cities[0].name,
+                        location: `${firstIntl.cities[0].name}, ${firstIntl.name}`,
+                      });
+                    }}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      propModalRegion === 'International'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100'
+                    }`}
+                  >
+                    <span>🌐 International (NRI & Global)</span>
+                  </button>
+                </div>
+
+                {/* State and City Selectors */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1">
+                      Select {propModalRegion === 'India' ? 'State' : 'Country / Region'} *
+                    </label>
+                    <select
+                      value={propModalStateId}
+                      onChange={(e) => {
+                        const newStateId = e.target.value;
+                        setPropModalStateId(newStateId);
+                        const stateList = propModalRegion === 'India' ? INDIA_LOCATION_DATA : INTERNATIONAL_LOCATION_DATA;
+                        const stateObj = stateList.find((s) => s.id === newStateId);
+                        if (stateObj && stateObj.cities.length > 0) {
+                          setEditingProperty({
+                            ...editingProperty,
+                            city: stateObj.cities[0].name,
+                          });
+                        }
+                      }}
+                      className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-xs font-bold text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                    >
+                      {(propModalRegion === 'India' ? INDIA_LOCATION_DATA : INTERNATIONAL_LOCATION_DATA).map((state) => (
+                        <option key={state.id} value={state.id}>
+                          {state.name} ({state.cities.length} cities)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1">
+                      Select City *
+                    </label>
+                    {(() => {
+                      const stateList = propModalRegion === 'India' ? INDIA_LOCATION_DATA : INTERNATIONAL_LOCATION_DATA;
+                      const activeState = stateList.find((s) => s.id === propModalStateId) || stateList[0];
+                      return (
+                        <select
+                          value={editingProperty.city}
+                          onChange={(e) =>
+                            setEditingProperty({
+                              ...editingProperty,
+                              city: e.target.value,
+                            })
+                          }
+                          className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-xs font-bold text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                        >
+                          {activeState.cities.map((city) => (
+                            <option key={city.id} value={city.name}>
+                              {city.name}
+                            </option>
+                          ))}
+                        </select>
+                      );
+                    })()}
+                  </div>
+                </div>
+
                 <div>
-                  <label className="block text-xs font-bold text-gray-600 uppercase mb-1">
-                    Location / Address *
+                  <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1">
+                    Locality, Area & Landmark Address *
                   </label>
                   <input
                     type="text"
@@ -2090,22 +2507,8 @@ export default function AdminSecretPage({
                     onChange={(e) =>
                       setEditingProperty({ ...editingProperty, location: e.target.value })
                     }
-                    className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3.5 py-2 text-sm font-semibold text-gray-900 focus:outline-none focus:border-[#D61F26]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-600 uppercase mb-1">
-                    City *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={editingProperty.city}
-                    onChange={(e) =>
-                      setEditingProperty({ ...editingProperty, city: e.target.value })
-                    }
-                    className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3.5 py-2 text-sm font-semibold text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                    placeholder="e.g., Bandra West, Near Linking Road, Mumbai"
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3.5 py-2 text-xs font-semibold text-gray-900 focus:outline-none focus:border-[#D61F26]"
                   />
                 </div>
               </div>
@@ -2339,6 +2742,121 @@ export default function AdminSecretPage({
                 />
               </div>
 
+              {/* INDIA & INTERNATIONAL LOCATION SELECTOR FOR NEWS */}
+              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-[#D61F26]" />
+                    <span>Target Region, State & City Coverage</span>
+                  </span>
+                  <span className="text-[10px] text-gray-400 font-medium">India & Global Coverage</span>
+                </div>
+
+                {/* Region Toggle */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewsModalRegion('India');
+                      const firstState = INDIA_LOCATION_DATA[0];
+                      setNewsModalStateId(firstState.id);
+                      setEditingNews({
+                        ...editingNews,
+                        region: 'India',
+                        city: firstState.cities[0].name,
+                      });
+                    }}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      newsModalRegion === 'India'
+                        ? 'bg-[#D61F26] text-white shadow-xs'
+                        : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100'
+                    }`}
+                  >
+                    <span>🇮🇳 India States & Cities</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewsModalRegion('International');
+                      const firstIntl = INTERNATIONAL_LOCATION_DATA[0];
+                      setNewsModalStateId(firstIntl.id);
+                      setEditingNews({
+                        ...editingNews,
+                        region: 'International',
+                        city: firstIntl.cities[0].name,
+                      });
+                    }}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      newsModalRegion === 'International'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100'
+                    }`}
+                  >
+                    <span>🌐 International News Coverage</span>
+                  </button>
+                </div>
+
+                {/* State & City Selectors */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1">
+                      {newsModalRegion === 'India' ? 'Target State' : 'Target Country / Region'}
+                    </label>
+                    <select
+                      value={newsModalStateId}
+                      onChange={(e) => {
+                        const newStateId = e.target.value;
+                        setNewsModalStateId(newStateId);
+                        const stateList = newsModalRegion === 'India' ? INDIA_LOCATION_DATA : INTERNATIONAL_LOCATION_DATA;
+                        const stateObj = stateList.find((s) => s.id === newStateId);
+                        if (stateObj && stateObj.cities.length > 0) {
+                          setEditingNews({
+                            ...editingNews,
+                            city: stateObj.cities[0].name,
+                          });
+                        }
+                      }}
+                      className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-xs font-bold text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                    >
+                      {(newsModalRegion === 'India' ? INDIA_LOCATION_DATA : INTERNATIONAL_LOCATION_DATA).map((state) => (
+                        <option key={state.id} value={state.id}>
+                          {state.name} ({state.cities.length} cities)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1">
+                      Target City (Optional / Specific City)
+                    </label>
+                    {(() => {
+                      const stateList = newsModalRegion === 'India' ? INDIA_LOCATION_DATA : INTERNATIONAL_LOCATION_DATA;
+                      const activeState = stateList.find((s) => s.id === newsModalStateId) || stateList[0];
+                      return (
+                        <select
+                          value={editingNews.city || ''}
+                          onChange={(e) =>
+                            setEditingNews({
+                              ...editingNews,
+                              city: e.target.value,
+                            })
+                          }
+                          className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-xs font-bold text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                        >
+                          <option value="">All State-wide / National</option>
+                          {activeState.cities.map((city) => (
+                            <option key={city.id} value={city.name}>
+                              {city.name}
+                            </option>
+                          ))}
+                        </select>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-gray-600 uppercase mb-1">
@@ -2355,16 +2873,15 @@ export default function AdminSecretPage({
 
                 <div>
                   <label className="block text-xs font-bold text-gray-600 uppercase mb-1">
-                    Region Badge
+                    Author / Source
                   </label>
-                  <select
-                    value={editingNews.region || 'India'}
-                    onChange={(e) => setEditingNews({ ...editingNews, region: e.target.value as 'India' | 'International' })}
-                    className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3 py-2 text-sm font-bold text-gray-900 focus:outline-none focus:border-[#D61F26]"
-                  >
-                    <option value="India">🇮🇳 India</option>
-                    <option value="International">🌐 International</option>
-                  </select>
+                  <input
+                    type="text"
+                    required
+                    value={editingNews.author}
+                    onChange={(e) => setEditingNews({ ...editingNews, author: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3.5 py-2 text-sm font-bold text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                  />
                 </div>
               </div>
 
