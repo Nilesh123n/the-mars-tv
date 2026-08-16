@@ -744,121 +744,143 @@ export class DataService {
     if (isSupabaseConfigured()) {
       try {
         const supabase = getSupabaseClient();
-        if (!supabase) {
-          throw new Error('Supabase client failed to initialize');
+        if (supabase) {
+          let { data, error } = await supabase
+            .from('properties')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+          // created_at column na ho toh fallback query
+          if (error && (
+            error.code === '42703' || 
+            error.message?.toLowerCase().includes('created_at')
+          )) {
+            const fallbackRes = await supabase.from('properties').select('*');
+            data = fallbackRes.data;
+            error = fallbackRes.error;
+          }
+
+          if (!error && data) {
+            // ✅ Error nahi — data use karo
+            const propertiesList: Property[] = data.map(fromSupabaseRow);
+            memoryCache.properties = { 
+              data: propertiesList, 
+              timestamp: Date.now() 
+            };
+            saveToStorage('pr_properties_v2', propertiesList);
+            return propertiesList;
+          } else if (error) {
+            // ✅ Error hai — log karo aur NEECHE fallback pe jaao (throw mat karo)
+            console.warn('[PropertyService] Supabase fetch error, using cache:', 
+              error.message);
+            // Fall through to cache/localStorage below
+          }
         }
-
-        console.log('[PropertyService] Fetching properties from Supabase...');
-        let { data, error } = await supabase
-          .from('properties')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (error && (error.code === '42703' || error.message?.toLowerCase().includes('created_at'))) {
-          const fallbackRes = await supabase.from('properties').select('*');
-          data = fallbackRes.data;
-          error = fallbackRes.error;
-        }
-
-        if (error) {
-          console.error('[PropertyService] Supabase getProperties error:', error);
-          throw new Error(`Supabase query failed: ${error.message}`);
-        }
-
-        const propertiesList: Property[] = (data || []).map(fromSupabaseRow);
-        memoryCache.properties = { data: propertiesList, timestamp: Date.now() };
-        saveToStorage('pr_properties_v2', propertiesList);
-
-        return propertiesList;
       } catch (err) {
-        console.error('[PropertyService] Supabase fetch failed:', err);
-        throw err;
+        // ✅ Exception aaye — log karo aur cache use karo
+        console.warn('[PropertyService] Supabase unavailable, using cache:', err);
+        // Fall through to cache/localStorage below
       }
     }
 
-    if (!forceRefresh && memoryCache.properties && Date.now() - memoryCache.properties.timestamp < CACHE_TTL_MS) {
+    // Cache / localStorage fallback (yeh ab hamesha available hai)
+    if (!forceRefresh && 
+        memoryCache.properties && 
+        Date.now() - memoryCache.properties.timestamp < CACHE_TTL_MS) {
       return memoryCache.properties.data;
     }
 
-    try {
-      const res = await fetch('/api/properties');
-      if (res.ok) {
-        const json = await res.json();
-        if (json.data && Array.isArray(json.data) && json.data.length > 0) {
-          memoryCache.properties = { data: json.data, timestamp: Date.now() };
-          saveToStorage('pr_properties_v2', json.data);
-          if (json.version) currentServerVersion = json.version;
-          return json.data;
-        }
-      }
-    } catch (err) {}
-
     const stored = readFromStorage<Property[]>('pr_properties_v2');
-    if (!forceRefresh && stored && stored.data && stored.data.length > 0) {
+    if (!forceRefresh && stored?.data?.length) {
       memoryCache.properties = stored;
       return stored.data;
     }
 
-    const fallback = stored?.data || initialProperties;
+    const fallback = stored?.data?.length ? stored.data : initialProperties;
     memoryCache.properties = { data: fallback, timestamp: Date.now() };
     saveToStorage('pr_properties_v2', fallback);
     return fallback;
   }
 
   static async saveProperty(property: Property): Promise<Property[]> {
-    console.log('[PropertyService] Initiating property save:', {
+    console.log('[PropertyService] Saving property:', {
       id: property.id,
       title: property.title,
       status: property.status,
     });
 
-    if (isSupabaseConfigured()) {
-      const supabase = getSupabaseClient();
-      if (!supabase) {
-        throw new Error('Supabase client is not available. Please verify credentials.');
-      }
-
-      const supabaseRow = toSupabaseRow(property);
-      console.log('[PropertyService] Upserting row to Supabase properties table:', supabaseRow.id);
-
-      const { data, error } = await supabase
-        .from('properties')
-        .upsert(supabaseRow, { onConflict: 'id' })
-        .select();
-
-      if (error) {
-        console.error('[PropertyService] Supabase upsert error:', error);
-        throw new Error(`Failed to save property to database: ${error.message}`);
-      }
-
-      console.log('[PropertyService] Supabase upsert successful:', data);
-      const updatedList = await this.getProperties(true);
-
-      this.broadcastLocal('PROPERTY_SAVED', { property, allProperties: updatedList });
-      syncListeners.forEach((fn) => {
-        try {
-          fn('PROPERTY_SAVED', { property, allProperties: updatedList });
-        } catch (e) {}
-      });
-
-      return updatedList;
-    }
-
-    const current = await this.getProperties();
+    // ── Step 1: Pehle LOCAL cache/state update karo (instant) ──
+    const current = memoryCache.properties?.data || 
+      readFromStorage<Property[]>('pr_properties_v2')?.data || 
+      initialProperties;
+      
     const index = current.findIndex((p) => p.id === property.id);
-    let updated: Property[];
-
+    let localUpdated: Property[];
     if (index >= 0) {
-      updated = [...current];
-      updated[index] = property;
+      localUpdated = [...current];
+      localUpdated[index] = property;
     } else {
-      updated = [property, ...current];
+      localUpdated = [property, ...current];
+    }
+    
+    // Local cache turant update karo
+    memoryCache.properties = { data: localUpdated, timestamp: Date.now() };
+    saveToStorage('pr_properties_v2', localUpdated);
+    
+    // Same-tab listeners ko turant notify karo
+    this.broadcastLocal('PROPERTY_SAVED', { 
+      property, 
+      allProperties: localUpdated 
+    });
+    syncListeners.forEach((fn) => {
+      try { fn('PROPERTY_SAVED', { property, allProperties: localUpdated }); } 
+      catch (e) {}
+    });
+
+    // ── Step 2: Supabase mein save karne ki koshish karo ──
+    if (isSupabaseConfigured()) {
+      try {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+          const supabaseRow = toSupabaseRow(property);
+          const { error } = await supabase
+            .from('properties')
+            .upsert(supabaseRow, { onConflict: 'id' })
+            .select();
+
+          if (error) {
+            // Supabase fail hua — log karo but crash mat karo
+            console.error('[PropertyService] Supabase upsert warning:', error.message);
+            // Local data already save ho gaya — return karo
+            return localUpdated;
+          }
+
+          // Supabase success — fresh list fetch karo
+          const freshList = await this.getProperties(true);
+          // Update local cache with fresh data
+          memoryCache.properties = { data: freshList, timestamp: Date.now() };
+          saveToStorage('pr_properties_v2', freshList);
+          
+          // Listeners ko fresh data ke saath dobara notify karo
+          this.broadcastLocal('PROPERTY_SAVED', { 
+            property, 
+            allProperties: freshList 
+          });
+          syncListeners.forEach((fn) => {
+            try { fn('PROPERTY_SAVED', { property, allProperties: freshList }); } 
+            catch (e) {}
+          });
+          
+          return freshList;
+        }
+      } catch (err) {
+        console.error('[PropertyService] Supabase save failed, using local:', err);
+        // Local data already save ho gaya hai — wo return karo
+        return localUpdated;
+      }
     }
 
-    memoryCache.properties = { data: updated, timestamp: Date.now() };
-    saveToStorage('pr_properties_v2', updated);
-    this.broadcastLocal('PROPERTY_SAVED', { property, allProperties: updated });
-
+    // ── Step 3: API fallback (no Supabase) ──
     try {
       await fetch('/api/properties', {
         method: 'POST',
@@ -867,13 +889,7 @@ export class DataService {
       });
     } catch (e) {}
 
-    syncListeners.forEach((fn) => {
-      try {
-        fn('PROPERTY_SAVED', { property, allProperties: updated });
-      } catch (e) {}
-    });
-
-    return updated;
+    return localUpdated;
   }
 
   static async approveProperty(id: string): Promise<Property[]> {
@@ -1697,14 +1713,18 @@ export class DataService {
     return custom || 'admin123';
   }
 
-  static setAdminPasscode(newPass: string): void {
-    if (newPass && newPass.trim().length >= 4) {
-      localStorage.setItem('pr_admin_passcode_custom', newPass.trim());
+  static setAdminPasscode(newPass: string): string {
+    const trimmed = newPass.trim();
+    if (trimmed.length >= 4) {
+      localStorage.setItem('pr_admin_passcode_custom', trimmed);
+      return trimmed;
     }
+    return this.getAdminPasscode();
   }
 
-  static resetAdminPasscode(): void {
+  static resetAdminPasscode(): string {
     localStorage.removeItem('pr_admin_passcode_custom');
+    return 'admin123';
   }
 
   // Reset local cache back to initial defaults

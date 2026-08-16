@@ -100,54 +100,59 @@ export default function App() {
     const unsubscribeSync = DataService.initRealtimeSync((eventType, payload) => {
       if (!isMounted) return;
 
-      if (payload?.allProperties) {
-        setProperties(payload.allProperties);
-      } else if (payload?.properties) {
-        setProperties(payload.properties);
+      // Properties update
+      const newProps = payload?.allProperties || payload?.properties;
+      if (newProps?.length >= 0) {   // ← 0 bhi valid hai
+        setProperties(newProps);
       }
 
-      if (payload?.allLeads) {
-        setLeads(payload.allLeads);
-      } else if (payload?.leads) {
-        setLeads(payload.leads);
+      // Leads update  
+      const newLeads = payload?.allLeads || payload?.leads;
+      if (newLeads?.length >= 0) {
+        setLeads(newLeads);
       }
 
-      if (payload?.allNews) {
-        setNewsItems(payload.allNews);
-      } else if (payload?.news) {
-        setNewsItems(payload.news);
+      // News update
+      const newNews = payload?.allNews || payload?.news;
+      if (newNews?.length >= 0) {
+        setNewsItems(newNews);
       }
 
-      if (payload?.allPRServices) {
-        setPRServices(payload.allPRServices);
-      } else if (payload?.prServices) {
-        setPRServices(payload.prServices);
+      // PR Services update
+      const newPR = payload?.allPRServices || payload?.prServices;
+      if (newPR?.length >= 0) {
+        setPRServices(newPR);
       }
 
-      if (payload?.allConstruction) {
-        setConstructionPackages(payload.allConstruction);
-      } else if (payload?.construction) {
-        setConstructionPackages(payload.construction);
+      // Construction update
+      const newConstr = payload?.allConstruction || payload?.construction;
+      if (newConstr?.length >= 0) {
+        setConstructionPackages(newConstr);
       }
 
-      if (payload?.allProjects) {
-        setProjects(payload.allProjects);
-      } else if (payload?.projects) {
-        setProjects(payload.projects);
+      // Projects update
+      const newProj = payload?.allProjects || payload?.projects;
+      if (newProj?.length >= 0) {
+        setProjects(newProj);
       }
 
+      // Settings update
       if (payload?.siteSettings) {
         setSiteSettings(payload.siteSettings);
       }
 
+      // Toast notifications
       if (eventType === 'PROPERTY_APPROVED') {
         const title = payload?.property?.title || 'Listing';
-        showToast(`⚡ Live Update: "${title}" is now published and active!`);
+        showToast(`⚡ "${title}" is now LIVE!`);
       } else if (eventType === 'PROPERTY_SAVED') {
-        showToast(`⚡ Live Update: Property listings updated across all devices!`);
+        const prop = payload?.property;
+        if (prop?.status === 'PENDING_APPROVAL') {
+          showToast(`🔔 New property pending approval: "${prop.title}"`);
+        }
       } else if (eventType === 'NEWS_SAVED') {
         const title = payload?.newsItem?.title || 'Article';
-        showToast(`📰 Live Update: News "${title}" updated!`);
+        showToast(`📰 News updated: "${title}"`);
       }
     });
 
@@ -156,6 +161,26 @@ export default function App() {
       unsubscribeSync();
     };
   }, []);
+
+  // Admin panel pe navigate hone pe fresh data lo
+  useEffect(() => {
+    if (currentView !== 'admin-secret') return;
+    
+    let active = true;
+    
+    Promise.all([
+      DataService.getProperties(true),
+      DataService.getLeads(true),
+      DataService.getNews(true),
+    ]).then(([props, leads, news]) => {
+      if (!active) return;
+      if (props?.length >= 0) setProperties(props);
+      if (leads?.length >= 0) setLeads(leads);
+      if (news?.length >= 0) setNewsItems(news);
+    }).catch(console.warn);
+
+    return () => { active = false; };
+  }, [currentView]);
 
   // Hash Navigation Sync
   useEffect(() => {
