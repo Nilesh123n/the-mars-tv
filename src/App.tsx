@@ -23,7 +23,6 @@ import AdminSecretPage from './components/pages/AdminSecretPage';
 
 // Modals
 import PropertyDetailModal from './components/PropertyDetailModal';
-import EMICalculatorModal from './components/EMICalculatorModal';
 import ListPropertyModal from './components/ListPropertyModal';
 import NewsDetailModal from './components/NewsDetailModal';
 import Toast from './components/Toast';
@@ -119,9 +118,36 @@ export default function App() {
         setNewsItems(payload.news);
       }
 
+      if (payload?.allPRServices) {
+        setPRServices(payload.allPRServices);
+      } else if (payload?.prServices) {
+        setPRServices(payload.prServices);
+      }
+
+      if (payload?.allConstruction) {
+        setConstructionPackages(payload.allConstruction);
+      } else if (payload?.construction) {
+        setConstructionPackages(payload.construction);
+      }
+
+      if (payload?.allProjects) {
+        setProjects(payload.allProjects);
+      } else if (payload?.projects) {
+        setProjects(payload.projects);
+      }
+
+      if (payload?.siteSettings) {
+        setSiteSettings(payload.siteSettings);
+      }
+
       if (eventType === 'PROPERTY_APPROVED') {
         const title = payload?.property?.title || 'Listing';
         showToast(`⚡ Live Update: "${title}" is now published and active!`);
+      } else if (eventType === 'PROPERTY_SAVED') {
+        showToast(`⚡ Live Update: Property listings updated across all devices!`);
+      } else if (eventType === 'NEWS_SAVED') {
+        const title = payload?.newsItem?.title || 'Article';
+        showToast(`📰 Live Update: News "${title}" updated!`);
       }
     });
 
@@ -163,8 +189,6 @@ export default function App() {
   // Modals & Drawers
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
-  const [showEMICalculator, setShowEMICalculator] = useState(false);
-  const [emiAmount, setEmiAmount] = useState(12500000);
   const [showListPropertyModal, setShowListPropertyModal] = useState(false);
 
   // Toast
@@ -233,7 +257,6 @@ export default function App() {
         }}
         wishlistCount={wishlist.length}
         onOpenListProperty={() => setShowListPropertyModal(true)}
-        onOpenEMICalculator={() => setShowEMICalculator(true)}
       />
 
       <main className="flex-grow pt-[72px]">
@@ -352,7 +375,10 @@ export default function App() {
         {currentView === 'news' && (
           <NewsPage
             newsItems={newsItems}
+            properties={properties}
             onSelectNews={(item) => setSelectedNews(item)}
+            onSelectProperty={(p) => setSelectedProperty(p)}
+            onNavigate={(view) => setCurrentView(view)}
           />
         )}
 
@@ -416,10 +442,6 @@ export default function App() {
           onClose={() => setSelectedProperty(null)}
           isWishlisted={wishlist.includes(selectedProperty.id)}
           onToggleWishlist={handleToggleWishlist}
-          onOpenEMICalculator={(amt) => {
-            setEmiAmount(amt);
-            setShowEMICalculator(true);
-          }}
           onSubmitLead={(lead) => handleAddLead(lead)}
         />
       )}
@@ -428,13 +450,6 @@ export default function App() {
         <NewsDetailModal
           news={selectedNews}
           onClose={() => setSelectedNews(null)}
-        />
-      )}
-
-      {showEMICalculator && (
-        <EMICalculatorModal
-          initialAmount={emiAmount}
-          onClose={() => setShowEMICalculator(false)}
         />
       )}
 

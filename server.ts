@@ -239,6 +239,9 @@ async function startServer() {
 
   app.post('/api/news', (req: Request, res: Response) => {
     const newsItem: NewsItem = req.body;
+    if (!newsItem || !newsItem.id) {
+      return res.status(400).json({ success: false, error: 'News item payload required' });
+    }
     const index = store.news.findIndex((n) => n.id === newsItem.id);
     if (index >= 0) {
       store.news[index] = newsItem;
@@ -263,7 +266,120 @@ async function startServer() {
   });
 
   // -----------------------------------------------------------------
-  // 4. RESET TO FACTORY DEFAULTS
+  // 4. PR SERVICES API
+  // -----------------------------------------------------------------
+  app.get('/api/pr-services', (req: Request, res: Response) => {
+    res.json({ success: true, data: store.prServices, version: store.version });
+  });
+
+  app.post('/api/pr-services', (req: Request, res: Response) => {
+    const service: PRServiceItem = req.body;
+    if (!service || !service.id) {
+      return res.status(400).json({ success: false, error: 'Service payload required' });
+    }
+    const index = store.prServices.findIndex((s) => s.id === service.id);
+    if (index >= 0) {
+      store.prServices[index] = service;
+    } else {
+      store.prServices = [...store.prServices, service];
+    }
+
+    persistStore();
+    broadcastRealtimeUpdate('PR_SERVICE_SAVED', { service, allPRServices: store.prServices });
+    res.json({ success: true, data: store.prServices });
+  });
+
+  app.delete('/api/pr-services/:id', (req: Request, res: Response) => {
+    const { id } = req.params;
+    store.prServices = store.prServices.filter((s) => s.id !== id);
+    persistStore();
+    broadcastRealtimeUpdate('PR_SERVICE_DELETED', { id, allPRServices: store.prServices });
+    res.json({ success: true, data: store.prServices });
+  });
+
+  // -----------------------------------------------------------------
+  // 5. CONSTRUCTION PACKAGES API
+  // -----------------------------------------------------------------
+  app.get('/api/construction', (req: Request, res: Response) => {
+    res.json({ success: true, data: store.construction, version: store.version });
+  });
+
+  app.post('/api/construction', (req: Request, res: Response) => {
+    const pkg: ConstructionPackage = req.body;
+    if (!pkg || !pkg.id) {
+      return res.status(400).json({ success: false, error: 'Package payload required' });
+    }
+    const index = store.construction.findIndex((p) => p.id === pkg.id);
+    if (index >= 0) {
+      store.construction[index] = pkg;
+    } else {
+      store.construction = [...store.construction, pkg];
+    }
+
+    persistStore();
+    broadcastRealtimeUpdate('CONSTRUCTION_SAVED', { pkg, allConstruction: store.construction });
+    res.json({ success: true, data: store.construction });
+  });
+
+  app.delete('/api/construction/:id', (req: Request, res: Response) => {
+    const { id } = req.params;
+    store.construction = store.construction.filter((p) => p.id !== id);
+    persistStore();
+    broadcastRealtimeUpdate('CONSTRUCTION_DELETED', { id, allConstruction: store.construction });
+    res.json({ success: true, data: store.construction });
+  });
+
+  // -----------------------------------------------------------------
+  // 6. PROJECTS API
+  // -----------------------------------------------------------------
+  app.get('/api/projects', (req: Request, res: Response) => {
+    res.json({ success: true, data: store.projects, version: store.version });
+  });
+
+  app.post('/api/projects', (req: Request, res: Response) => {
+    const project: Project = req.body;
+    if (!project || !project.id) {
+      return res.status(400).json({ success: false, error: 'Project payload required' });
+    }
+    const index = store.projects.findIndex((p) => p.id === project.id);
+    if (index >= 0) {
+      store.projects[index] = project;
+    } else {
+      store.projects = [...store.projects, project];
+    }
+
+    persistStore();
+    broadcastRealtimeUpdate('PROJECT_SAVED', { project, allProjects: store.projects });
+    res.json({ success: true, data: store.projects });
+  });
+
+  app.delete('/api/projects/:id', (req: Request, res: Response) => {
+    const { id } = req.params;
+    store.projects = store.projects.filter((p) => p.id !== id);
+    persistStore();
+    broadcastRealtimeUpdate('PROJECT_DELETED', { id, allProjects: store.projects });
+    res.json({ success: true, data: store.projects });
+  });
+
+  // -----------------------------------------------------------------
+  // 7. SITE SETTINGS API
+  // -----------------------------------------------------------------
+  app.get('/api/site-settings', (req: Request, res: Response) => {
+    res.json({ success: true, data: store.siteSettings, version: store.version });
+  });
+
+  app.post('/api/site-settings', (req: Request, res: Response) => {
+    const settings: SiteSettings = req.body;
+    if (settings) {
+      store.siteSettings = { ...store.siteSettings, ...settings };
+      persistStore();
+      broadcastRealtimeUpdate('SETTINGS_SAVED', { siteSettings: store.siteSettings });
+    }
+    res.json({ success: true, data: store.siteSettings });
+  });
+
+  // -----------------------------------------------------------------
+  // 8. RESET TO FACTORY DEFAULTS
   // -----------------------------------------------------------------
   app.post('/api/reset-defaults', (req: Request, res: Response) => {
     store = {

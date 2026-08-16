@@ -137,8 +137,8 @@ export class DataService {
             eventSource.close();
             eventSource = null;
           }
-          // Reconnect after 4 seconds
-          setTimeout(connectSSE, 4000);
+          // Reconnect after 3 seconds
+          setTimeout(connectSSE, 3000);
         };
       } catch (err) {
         console.warn('SSE connection failed, falling back to polling:', err);
@@ -147,30 +147,41 @@ export class DataService {
 
     connectSSE();
 
-    // 4. Background Fallback Poller (Every 4 seconds - checks lightweight version number)
-    const pollerTimer = setInterval(async () => {
-      try {
-        const res = await fetch('/api/sync/version');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.version && currentServerVersion && data.version > currentServerVersion) {
-            currentServerVersion = data.version;
-            // Version changed on another device! Refresh active data
-            DataService.refreshAllDataFromServer();
-          } else if (data.version && !currentServerVersion) {
-            currentServerVersion = data.version;
-          }
-        }
-      } catch (e) {
-        // Silent poll error
-      }
-    }, 4000);
+    // 4. Window focus & visibility listener (instantly sync when user opens tab/app)
+    const handleFocusOrVisible = () => {
+      DataService.checkForServerUpdates();
+    };
+    window.addEventListener('visibilitychange', handleFocusOrVisible);
+    window.addEventListener('focus', handleFocusOrVisible);
+
+    // 5. Background Fallback Poller (Every 3 seconds - checks lightweight version number)
+    const pollerTimer = setInterval(() => {
+      DataService.checkForServerUpdates();
+    }, 3000);
 
     return () => {
       if (onUpdateCallback) syncListeners.delete(onUpdateCallback);
       if (eventSource) eventSource.close();
+      window.removeEventListener('visibilitychange', handleFocusOrVisible);
+      window.removeEventListener('focus', handleFocusOrVisible);
       clearInterval(pollerTimer);
     };
+  }
+
+  // Check version and refresh if stale
+  static async checkForServerUpdates() {
+    try {
+      const res = await fetch('/api/sync/version');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.version && currentServerVersion && data.version > currentServerVersion) {
+          currentServerVersion = data.version;
+          await DataService.refreshAllDataFromServer();
+        } else if (data.version && !currentServerVersion) {
+          currentServerVersion = data.version;
+        }
+      }
+    } catch (e) {}
   }
 
   // Handle incoming real-time messages
@@ -190,6 +201,26 @@ export class DataService {
         memoryCache.news = { data: payload.allNews, timestamp: Date.now() };
         saveToStorage('pr_news_v2', payload.allNews);
       }
+    } else if (type === 'PR_SERVICE_SAVED' || type === 'PR_SERVICE_DELETED') {
+      if (payload?.allPRServices) {
+        memoryCache.prServices = { data: payload.allPRServices, timestamp: Date.now() };
+        saveToStorage('pr_services_v2', payload.allPRServices);
+      }
+    } else if (type === 'CONSTRUCTION_SAVED' || type === 'CONSTRUCTION_DELETED') {
+      if (payload?.allConstruction) {
+        memoryCache.construction = { data: payload.allConstruction, timestamp: Date.now() };
+        saveToStorage('pr_construction_v2', payload.allConstruction);
+      }
+    } else if (type === 'PROJECT_SAVED' || type === 'PROJECT_DELETED') {
+      if (payload?.allProjects) {
+        memoryCache.projects = { data: payload.allProjects, timestamp: Date.now() };
+        saveToStorage('pr_projects_v2', payload.allProjects);
+      }
+    } else if (type === 'SETTINGS_SAVED') {
+      if (payload?.siteSettings) {
+        memoryCache.siteSettings = { data: payload.siteSettings, timestamp: Date.now() };
+        saveToStorage('pr_site_settings_v2', payload.siteSettings);
+      }
     } else if (type === 'ALL_DATA_RESET') {
       DataService.resetAllLocalCache();
     }
@@ -204,15 +235,29 @@ export class DataService {
     });
   }
 
-  // Refresh data from server
+  // Refresh all data from server
   static async refreshAllDataFromServer() {
     try {
-      const [p, l, n] = await Promise.all([
+      const [p, l, n, pr, c, proj, s] = await Promise.all([
         DataService.getProperties(true),
         DataService.getLeads(true),
         DataService.getNews(true),
+        DataService.getPRServices(true),
+        DataService.getConstructionPackages(true),
+        DataService.getProjects(true),
+        DataService.getSiteSettings(true),
       ]);
-      syncListeners.forEach((fn) => fn('DATA_SYNC_REFRESH', { properties: p, leads: l, news: n }));
+      syncListeners.forEach((fn) =>
+        fn('DATA_SYNC_REFRESH', {
+          properties: p,
+          leads: l,
+          news: n,
+          prServices: pr,
+          construction: c,
+          projects: proj,
+          siteSettings: s,
+        })
+      );
     } catch (e) {}
   }
 
@@ -506,6 +551,18 @@ export class DataService {
       return memoryCache.prServices.data;
     }
 
+    try {
+      const res = await fetch('/api/pr-services');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && Array.isArray(json.data) && json.data.length > 0) {
+          memoryCache.prServices = { data: json.data, timestamp: Date.now() };
+          saveToStorage('pr_services_v2', json.data);
+          return json.data;
+        }
+      }
+    } catch (e) {}
+
     const stored = readFromStorage<PRServiceItem[]>('pr_services_v2');
     if (!forceRefresh && stored && Date.now() - stored.timestamp < CACHE_TTL_MS) {
       memoryCache.prServices = stored;
@@ -547,6 +604,19 @@ export class DataService {
 
     memoryCache.prServices = { data: updated, timestamp: Date.now() };
     saveToStorage('pr_services_v2', updated);
+    this.broadcastLocal('PR_SERVICE_SAVED', { service, allPRServices: updated });
+
+    try {
+      const res = await fetch('/api/pr-services', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(service),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data) updated = json.data;
+      }
+    } catch (e) {}
 
     if (isSupabaseConfigured()) {
       try {
@@ -568,6 +638,11 @@ export class DataService {
 
     memoryCache.prServices = { data: updated, timestamp: Date.now() };
     saveToStorage('pr_services_v2', updated);
+    this.broadcastLocal('PR_SERVICE_DELETED', { id, allPRServices: updated });
+
+    try {
+      await fetch(`/api/pr-services/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    } catch (e) {}
 
     if (isSupabaseConfigured()) {
       try {
@@ -702,6 +777,18 @@ export class DataService {
       return memoryCache.construction.data;
     }
 
+    try {
+      const res = await fetch('/api/construction');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && Array.isArray(json.data) && json.data.length > 0) {
+          memoryCache.construction = { data: json.data, timestamp: Date.now() };
+          saveToStorage('pr_construction_v2', json.data);
+          return json.data;
+        }
+      }
+    } catch (e) {}
+
     const stored = readFromStorage<ConstructionPackage[]>('pr_construction_v2');
     if (!forceRefresh && stored && Date.now() - stored.timestamp < CACHE_TTL_MS) {
       memoryCache.construction = stored;
@@ -743,6 +830,19 @@ export class DataService {
 
     memoryCache.construction = { data: updated, timestamp: Date.now() };
     saveToStorage('pr_construction_v2', updated);
+    this.broadcastLocal('CONSTRUCTION_SAVED', { pkg, allConstruction: updated });
+
+    try {
+      const res = await fetch('/api/construction', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(pkg),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data) updated = json.data;
+      }
+    } catch (e) {}
 
     if (isSupabaseConfigured()) {
       try {
@@ -764,6 +864,11 @@ export class DataService {
 
     memoryCache.construction = { data: updated, timestamp: Date.now() };
     saveToStorage('pr_construction_v2', updated);
+    this.broadcastLocal('CONSTRUCTION_DELETED', { id, allConstruction: updated });
+
+    try {
+      await fetch(`/api/construction/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    } catch (e) {}
 
     if (isSupabaseConfigured()) {
       try {
@@ -784,6 +889,18 @@ export class DataService {
     if (!forceRefresh && memoryCache.siteSettings && Date.now() - memoryCache.siteSettings.timestamp < CACHE_TTL_MS) {
       return memoryCache.siteSettings.data;
     }
+
+    try {
+      const res = await fetch('/api/site-settings');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data) {
+          memoryCache.siteSettings = { data: json.data, timestamp: Date.now() };
+          saveToStorage('pr_site_settings_v2', json.data);
+          return json.data;
+        }
+      }
+    } catch (e) {}
 
     const stored = readFromStorage<SiteSettings>('pr_site_settings_v2');
     if (!forceRefresh && stored && Date.now() - stored.timestamp < CACHE_TTL_MS) {
@@ -815,6 +932,15 @@ export class DataService {
   static async saveSiteSettings(settings: SiteSettings): Promise<SiteSettings> {
     memoryCache.siteSettings = { data: settings, timestamp: Date.now() };
     saveToStorage('pr_site_settings_v2', settings);
+    this.broadcastLocal('SETTINGS_SAVED', { siteSettings: settings });
+
+    try {
+      await fetch('/api/site-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings),
+      });
+    } catch (e) {}
 
     if (isSupabaseConfigured()) {
       try {
@@ -837,6 +963,18 @@ export class DataService {
     if (!forceRefresh && memoryCache.projects && Date.now() - memoryCache.projects.timestamp < CACHE_TTL_MS) {
       return memoryCache.projects.data;
     }
+
+    try {
+      const res = await fetch('/api/projects');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && Array.isArray(json.data) && json.data.length > 0) {
+          memoryCache.projects = { data: json.data, timestamp: Date.now() };
+          saveToStorage('pr_projects_v2', json.data);
+          return json.data;
+        }
+      }
+    } catch (e) {}
 
     const stored = readFromStorage<Project[]>('pr_projects_v2');
     if (!forceRefresh && stored && Date.now() - stored.timestamp < CACHE_TTL_MS) {
@@ -879,6 +1017,19 @@ export class DataService {
 
     memoryCache.projects = { data: updated, timestamp: Date.now() };
     saveToStorage('pr_projects_v2', updated);
+    this.broadcastLocal('PROJECT_SAVED', { project, allProjects: updated });
+
+    try {
+      const res = await fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(project),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data) updated = json.data;
+      }
+    } catch (e) {}
 
     if (isSupabaseConfigured()) {
       try {
@@ -900,6 +1051,11 @@ export class DataService {
 
     memoryCache.projects = { data: updated, timestamp: Date.now() };
     saveToStorage('pr_projects_v2', updated);
+    this.broadcastLocal('PROJECT_DELETED', { id, allProjects: updated });
+
+    try {
+      await fetch(`/api/projects/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    } catch (e) {}
 
     if (isSupabaseConfigured()) {
       try {

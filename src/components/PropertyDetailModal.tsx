@@ -1,13 +1,12 @@
 import { useState, FormEvent } from 'react';
 import { Property } from '../types';
-import { X, MapPin, BedDouble, Car, Maximize2, ShieldCheck, Check, Phone, Mail, Calendar, Calculator, Share2, Heart, Send } from 'lucide-react';
+import { X, MapPin, BedDouble, Car, Maximize2, ShieldCheck, Check, Phone, Mail, Calendar, Share2, Heart, Send } from 'lucide-react';
 
 interface PropertyDetailModalProps {
   property: Property | null;
   onClose: () => void;
   isWishlisted: boolean;
   onToggleWishlist: (id: string) => void;
-  onOpenEMICalculator: (amount: number) => void;
   onSubmitLead: (lead: { name: string; phone: string; email: string; message: string; propertyTitle: string }) => void;
 }
 
@@ -16,7 +15,6 @@ export default function PropertyDetailModal({
   onClose,
   isWishlisted,
   onToggleWishlist,
-  onOpenEMICalculator,
   onSubmitLead,
 }: PropertyDetailModalProps) {
   if (!property) return null;
@@ -69,14 +67,6 @@ export default function PropertyDetailModal({
               title="Save Property"
             >
               <Heart className={`w-5 h-5 ${isWishlisted ? 'fill-[#D61F26] text-[#D61F26]' : ''}`} />
-            </button>
-            <button
-              onClick={() => onOpenEMICalculator(property.price)}
-              className="px-3 py-1.5 rounded-xl bg-amber-50 text-amber-800 text-[12.5px] font-bold hover:bg-amber-100 transition-colors flex items-center gap-1.5 border border-amber-200 cursor-pointer"
-              title="Calculate EMI"
-            >
-              <Calculator className="w-4 h-4 text-amber-600" />
-              <span>EMI Calc</span>
             </button>
             <button
               onClick={onClose}
