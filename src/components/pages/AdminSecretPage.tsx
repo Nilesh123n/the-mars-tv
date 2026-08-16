@@ -315,6 +315,12 @@ export default function AdminSecretPage({
     }
   };
 
+  useEffect(() => {
+    if (!isUnlocked) return;
+    // Unlock hote hi latest data fetch karo
+    handleManualSync();
+  }, [isUnlocked]); // ← Sirf unlock hone pe run karo
+
   const handleCopySchema = () => {
     const schema = DataService.getSupabaseSQLSchema();
     navigator.clipboard.writeText(schema);
