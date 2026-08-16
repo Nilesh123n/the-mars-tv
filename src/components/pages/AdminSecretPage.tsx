@@ -2867,8 +2867,25 @@ export default function AdminSecretPage({
                     required
                     value={editingNews.category}
                     onChange={(e) => setEditingNews({ ...editingNews, category: e.target.value })}
+                    placeholder="e.g. Latest Update, Market Trends, etc."
                     className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3.5 py-2 text-sm font-bold text-gray-900 focus:outline-none focus:border-[#D61F26]"
                   />
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    {['Latest Update', 'Market Trends', 'Market News', 'Technology', 'International News'].map((cat) => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setEditingNews({ ...editingNews, category: cat })}
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-md cursor-pointer transition-colors ${
+                          editingNews.category === cat
+                            ? 'bg-[#D61F26] text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div>

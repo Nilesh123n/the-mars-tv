@@ -24,7 +24,7 @@ export default function NewsPage({ newsItems, onSelectNews }: NewsPageProps) {
     { id: 'ALL', label: 'All Topics', icon: Layers },
     { id: 'Market Trends', label: 'Market Trends', icon: TrendingUp },
     { id: 'Market News', label: 'Market News', icon: Newspaper },
-    { id: 'Policy Update', label: 'Policy Updates', icon: Newspaper },
+    { id: 'Latest Update', label: 'Latest Updates', icon: Newspaper },
     { id: 'Technology', label: 'Technology', icon: Cpu },
   ];
 
@@ -40,7 +40,11 @@ export default function NewsPage({ newsItems, onSelectNews }: NewsPageProps) {
     // Sub Category matching
     let matchesSub = true;
     if (selectedSubCategory !== 'ALL') {
-      matchesSub = (item.category || '').toLowerCase() === selectedSubCategory.toLowerCase();
+      const catLower = (item.category || '').toLowerCase();
+      const targetLower = selectedSubCategory.toLowerCase();
+      matchesSub =
+        catLower === targetLower ||
+        (selectedSubCategory === 'Latest Update' && (catLower.includes('update') || catLower.includes('policy')));
     }
 
     // Search matching

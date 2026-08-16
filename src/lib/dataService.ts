@@ -176,6 +176,14 @@ export class DataService {
       }
     }
 
+    // Auto-normalize any legacy "Policy Update" category to "Latest Update"
+    result = result.map((item) => {
+      if (item.category === 'Policy Update' || item.category === 'Policy Updates') {
+        return { ...item, category: 'Latest Update' };
+      }
+      return item;
+    });
+
     memoryCache.news = { data: result, timestamp: Date.now() };
     saveToStorage('pr_news_v2', result);
     return result;

@@ -94,8 +94,8 @@ export default function Header({
             </div>
           </button>
 
-          {/* Desktop Navigation Links (Visible on XL screens 1280px+ to ensure zero overflow) */}
-          <nav className="hidden xl:flex items-center gap-1 2xl:gap-1.5 flex-shrink">
+          {/* Desktop Navigation Links (Visible on desktop & mobile desktop mode lg:flex) */}
+          <nav className="hidden lg:flex items-center gap-0.5 lg:gap-1 xl:gap-1.5 flex-shrink">
             {navLinks.map((link) => {
               const active = currentView === link.id;
               const IconComp = link.icon;
@@ -104,17 +104,17 @@ export default function Header({
                   key={link.id}
                   onClick={() => handleNavClick(link.id)}
                   className={`
-                    px-2.5 2xl:px-3 py-1.5 2xl:py-2 text-[12px] 2xl:text-[13px] font-bold transition-all duration-150 cursor-pointer rounded-xl flex items-center gap-1.5 text-white whitespace-nowrap flex-shrink-0
+                    px-2 lg:px-2.5 xl:px-3 py-1.5 xl:py-2 text-[11.5px] lg:text-[12px] xl:text-[13px] font-bold transition-all duration-150 cursor-pointer rounded-xl flex items-center gap-1 xl:gap-1.5 whitespace-nowrap flex-shrink-0
                     ${
                       active
-                        ? 'bg-white text-[#D61F26] shadow-sm font-extrabold ring-1 ring-white/60'
-                        : 'hover:bg-white/15 opacity-95 hover:opacity-100'
+                        ? 'bg-white text-[#D61F26] shadow-md font-black ring-2 ring-white/80'
+                        : 'text-white hover:bg-white/15 opacity-95 hover:opacity-100'
                     }
                   `}
                   style={{ fontFamily: 'Inter, sans-serif' }}
                 >
-                  <IconComp className={`w-3.5 h-3.5 2xl:w-4 2xl:h-4 flex-shrink-0 ${active ? 'text-[#D61F26]' : 'text-white'}`} />
-                  <span>{link.label}</span>
+                  <IconComp className={`w-3.5 h-3.5 xl:w-4 xl:h-4 flex-shrink-0 ${active ? 'text-[#D61F26]' : 'text-white'}`} />
+                  <span className={active ? 'text-[#D61F26] font-black' : 'text-white'}>{link.label}</span>
                 </button>
               );
             })}
@@ -157,9 +157,9 @@ export default function Header({
               )}
             </button>
 
-            {/* Mobile / Tablet Menu Button (Visible on screens < 1280px) */}
+            {/* Mobile / Tablet Menu Button (Visible on screens < 1024px / lg) */}
             <button
-              className="xl:hidden p-2 text-white hover:bg-white/15 rounded-xl cursor-pointer transition-colors border border-white/25 flex items-center justify-center"
+              className="lg:hidden p-2 text-white hover:bg-white/15 rounded-xl cursor-pointer transition-colors border border-white/25 flex items-center justify-center"
               onClick={() => setMobileOpen(!mobileOpen)}
               aria-label="Toggle navigation menu"
               aria-expanded={mobileOpen}
@@ -172,7 +172,7 @@ export default function Header({
 
       {/* Mobile / Tablet Menu Overlay & Drawer */}
       {mobileOpen && (
-        <div className="xl:hidden fixed inset-x-0 top-[68px] sm:top-[72px] bottom-0 bg-black/60 backdrop-blur-sm z-40 animate-in fade-in duration-200">
+        <div className="lg:hidden fixed inset-x-0 top-[68px] sm:top-[72px] bottom-0 bg-black/60 backdrop-blur-sm z-40 animate-in fade-in duration-200">
           <div className="bg-[#D61F26] border-t border-red-600/70 shadow-2xl max-h-[calc(100vh-72px)] overflow-y-auto animate-in slide-in-from-top-4 duration-200">
             <div className="max-w-[800px] mx-auto p-4 sm:p-6 space-y-4">
               
@@ -218,7 +218,7 @@ export default function Header({
                           flex items-center justify-between p-3 sm:p-3.5 rounded-xl text-left transition-all cursor-pointer border
                           ${
                             active
-                              ? 'bg-white text-[#D61F26] border-white shadow-md font-extrabold'
+                              ? 'bg-white text-[#D61F26] border-white shadow-md font-black'
                               : 'bg-white/10 hover:bg-white/20 text-white border-white/15'
                           }
                         `}
@@ -231,11 +231,11 @@ export default function Header({
                           >
                             <IconComp className="w-4 h-4" />
                           </div>
-                          <span className="text-[13px] sm:text-[14px] font-bold truncate">
+                          <span className={`text-[13px] sm:text-[14px] font-bold truncate ${active ? 'text-[#D61F26] font-black' : 'text-white'}`}>
                             {link.label}
                           </span>
                         </div>
-                        <ChevronRight className={`w-4 h-4 flex-shrink-0 opacity-60 ${active ? 'text-[#D61F26]' : 'text-white'}`} />
+                        <ChevronRight className={`w-4 h-4 flex-shrink-0 ${active ? 'text-[#D61F26] opacity-90' : 'text-white opacity-60'}`} />
                       </button>
                     );
                   })}

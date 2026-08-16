@@ -13,7 +13,7 @@ const categories = [
   { id: 'India News', label: 'India News', icon: Newspaper },
   { id: 'International News', label: 'International News', icon: Newspaper },
   { id: 'Market Trends', label: 'Market Trends', icon: TrendingUp },
-  { id: 'Policy Update', label: 'Policy Updates', icon: FileText },
+  { id: 'Latest Update', label: 'Latest Updates', icon: FileText },
 ];
 
 export default function LatestNews({
@@ -25,10 +25,14 @@ export default function LatestNews({
 
   const filteredItems = selectedCategory === 'All'
     ? newsItems
-    : newsItems.filter((n) =>
-        (n.category || '').toLowerCase().includes(selectedCategory.toLowerCase()) ||
-        (selectedCategory === 'Policy Update' && (n.category || '').toLowerCase().includes('policy'))
-      );
+    : newsItems.filter((n) => {
+        const catLower = (n.category || '').toLowerCase();
+        const selLower = selectedCategory.toLowerCase();
+        return (
+          catLower.includes(selLower) ||
+          (selectedCategory === 'Latest Update' && (catLower.includes('update') || catLower.includes('policy')))
+        );
+      });
 
   // Take exactly 2 items for every category tab
   const displayItems = filteredItems.slice(0, 2);
