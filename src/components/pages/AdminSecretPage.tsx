@@ -347,18 +347,28 @@ export default function AdminSecretPage({
     e.preventDefault();
     if (!editingProperty) return;
 
-    const updated = await DataService.saveProperty(editingProperty);
-    setProperties(updated);
-    showToast(isNewProperty ? `Property "${editingProperty.title}" added!` : `Updated property "${editingProperty.title}"`);
-    setEditingProperty(null);
-    setIsNewProperty(false);
+    try {
+      const updated = await DataService.saveProperty(editingProperty);
+      setProperties(updated);
+      showToast(isNewProperty ? `Property "${editingProperty.title}" added & saved to database!` : `Updated property "${editingProperty.title}"`);
+      setEditingProperty(null);
+      setIsNewProperty(false);
+    } catch (err: any) {
+      console.error('Error saving property:', err);
+      showToast(`Save failed: ${err?.message || 'Check database connection'}`);
+    }
   };
 
   const handleDeleteProperty = async (id: string, title: string) => {
     if (confirm(`Are you sure you want to delete "${title}"?`)) {
-      const updated = await DataService.deleteProperty(id);
-      setProperties(updated);
-      showToast(`Property deleted.`);
+      try {
+        const updated = await DataService.deleteProperty(id);
+        setProperties(updated);
+        showToast(`Property deleted.`);
+      } catch (err: any) {
+        console.error('Error deleting property:', err);
+        showToast(`Delete failed: ${err?.message}`);
+      }
     }
   };
 
@@ -537,18 +547,28 @@ export default function AdminSecretPage({
     e.preventDefault();
     if (!editingNews) return;
 
-    const updated = await DataService.saveNewsItem(editingNews);
-    setNewsItems(updated);
-    showToast(isNewNews ? `Article "${editingNews.title}" added.` : `Updated article "${editingNews.title}"`);
-    setEditingNews(null);
-    setIsNewNews(false);
+    try {
+      const updated = await DataService.saveNewsItem(editingNews);
+      setNewsItems(updated);
+      showToast(isNewNews ? `Article "${editingNews.title}" added & saved to database!` : `Updated article "${editingNews.title}"`);
+      setEditingNews(null);
+      setIsNewNews(false);
+    } catch (err: any) {
+      console.error('Error saving news item:', err);
+      showToast(`Save news failed: ${err?.message || 'Check database connection'}`);
+    }
   };
 
   const handleDeleteNews = async (id: string, title: string) => {
     if (confirm(`Delete article "${title}"?`)) {
-      const updated = await DataService.deleteNewsItem(id);
-      setNewsItems(updated);
-      showToast(`Article deleted.`);
+      try {
+        const updated = await DataService.deleteNewsItem(id);
+        setNewsItems(updated);
+        showToast(`Article deleted.`);
+      } catch (err: any) {
+        console.error('Error deleting news item:', err);
+        showToast(`Delete news failed: ${err?.message}`);
+      }
     }
   };
 

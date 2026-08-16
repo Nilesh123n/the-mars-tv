@@ -1,6 +1,21 @@
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
 import { Property, NewsItem, PRServiceItem, Lead, ConstructionPackage, SiteSettings, Project } from '../types';
-import { fromSupabaseRow, toSupabaseRow } from './propertyMapper';
+import {
+  fromSupabaseRow,
+  toSupabaseRow,
+  fromSupabaseNewsRow,
+  toSupabaseNewsRow,
+  fromSupabasePRServiceRow,
+  toSupabasePRServiceRow,
+  fromSupabaseLeadRow,
+  toSupabaseLeadRow,
+  fromSupabaseConstructionRow,
+  toSupabaseConstructionRow,
+  fromSupabaseSiteSettingsRow,
+  toSupabaseSiteSettingsRow,
+  fromSupabaseProjectRow,
+  toSupabaseProjectRow,
+} from './supabaseMappers';
 import {
   initialProperties,
   initialNews,
@@ -71,7 +86,7 @@ const syncListeners: Set<SyncListener> = new Set();
 // Track last known server version for polling comparison
 let currentServerVersion = 0;
 let isRealtimeInitialized = false;
-let supabaseRealtimeChannel: any = null;
+let supabaseRealtimeChannels: any[] = [];
 
 export class DataService {
   // -----------------------------------------------------------------
@@ -90,26 +105,28 @@ export class DataService {
 
     isRealtimeInitialized = true;
 
-    // 1. Supabase Realtime Subscription (Highest Priority for Multi-Device Live Sync)
+    // 1. Supabase Realtime Subscription for ALL TABLES (Instant Multi-Device Live Sync)
     if (isSupabaseConfigured()) {
       try {
         const supabase = getSupabaseClient();
-        if (supabase && !supabaseRealtimeChannel) {
-          console.log('[DataService] Subscribing to Supabase Realtime for "properties" table...');
-          supabaseRealtimeChannel = supabase
+        if (supabase && supabaseRealtimeChannels.length === 0) {
+          console.log('[DataService] ⚡ Subscribing to Supabase Realtime channels for all entities...');
+
+          // A. Properties Table Channel
+          const propChannel = supabase
             .channel('public:properties:realtime')
             .on(
               'postgres_changes',
               { event: '*', schema: 'public', table: 'properties' },
               async (payload) => {
-                console.log('[DataService] ⚡ Supabase Realtime event received:', payload.eventType, payload);
+                console.log('[DataService] ⚡ Supabase Property Realtime event:', payload.eventType);
                 if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
                   if (payload.new) {
                     try {
                       const property = fromSupabaseRow(payload.new);
                       DataService.handleIncomingPropertyRealtime(property, payload.eventType);
-                    } catch (mapErr) {
-                      console.error('[DataService] Error mapping realtime property:', mapErr);
+                    } catch (err) {
+                      console.error('[DataService] Error mapping realtime property:', err);
                     }
                   }
                 } else if (payload.eventType === 'DELETE') {
@@ -120,9 +137,169 @@ export class DataService {
                 }
               }
             )
-            .subscribe((status) => {
-              console.log('[DataService] Supabase Realtime subscription status:', status);
-            });
+            .subscribe();
+          supabaseRealtimeChannels.push(propChannel);
+
+          // B. News Items Table Channel
+          const newsChannel = supabase
+            .channel('public:news_items:realtime')
+            .on(
+              'postgres_changes',
+              { event: '*', schema: 'public', table: 'news_items' },
+              async (payload) => {
+                console.log('[DataService] ⚡ Supabase News Realtime event:', payload.eventType);
+                if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+                  if (payload.new) {
+                    try {
+                      const newsItem = fromSupabaseNewsRow(payload.new);
+                      DataService.handleIncomingNewsRealtime(newsItem);
+                    } catch (err) {
+                      console.error('[DataService] Error mapping realtime news:', err);
+                    }
+                  }
+                } else if (payload.eventType === 'DELETE') {
+                  const deletedId = payload.old?.id;
+                  if (deletedId) {
+                    DataService.handleIncomingNewsDelete(deletedId);
+                  }
+                }
+              }
+            )
+            .subscribe();
+          supabaseRealtimeChannels.push(newsChannel);
+
+          // C. PR Services Table Channel
+          const prChannel = supabase
+            .channel('public:pr_services:realtime')
+            .on(
+              'postgres_changes',
+              { event: '*', schema: 'public', table: 'pr_services' },
+              async (payload) => {
+                console.log('[DataService] ⚡ Supabase PR Services Realtime event:', payload.eventType);
+                if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+                  if (payload.new) {
+                    try {
+                      const service = fromSupabasePRServiceRow(payload.new);
+                      DataService.handleIncomingPRServiceRealtime(service);
+                    } catch (err) {
+                      console.error('[DataService] Error mapping realtime PR service:', err);
+                    }
+                  }
+                } else if (payload.eventType === 'DELETE') {
+                  const deletedId = payload.old?.id;
+                  if (deletedId) {
+                    DataService.handleIncomingPRServiceDelete(deletedId);
+                  }
+                }
+              }
+            )
+            .subscribe();
+          supabaseRealtimeChannels.push(prChannel);
+
+          // D. Leads Table Channel
+          const leadsChannel = supabase
+            .channel('public:leads:realtime')
+            .on(
+              'postgres_changes',
+              { event: '*', schema: 'public', table: 'leads' },
+              async (payload) => {
+                console.log('[DataService] ⚡ Supabase Leads Realtime event:', payload.eventType);
+                if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+                  if (payload.new) {
+                    try {
+                      const lead = fromSupabaseLeadRow(payload.new);
+                      DataService.handleIncomingLeadRealtime(lead);
+                    } catch (err) {
+                      console.error('[DataService] Error mapping realtime lead:', err);
+                    }
+                  }
+                } else if (payload.eventType === 'DELETE') {
+                  const deletedId = payload.old?.id;
+                  if (deletedId) {
+                    DataService.handleIncomingLeadDelete(deletedId);
+                  }
+                }
+              }
+            )
+            .subscribe();
+          supabaseRealtimeChannels.push(leadsChannel);
+
+          // E. Construction Packages Table Channel
+          const constrChannel = supabase
+            .channel('public:construction_packages:realtime')
+            .on(
+              'postgres_changes',
+              { event: '*', schema: 'public', table: 'construction_packages' },
+              async (payload) => {
+                console.log('[DataService] ⚡ Supabase Construction Realtime event:', payload.eventType);
+                if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+                  if (payload.new) {
+                    try {
+                      const pkg = fromSupabaseConstructionRow(payload.new);
+                      DataService.handleIncomingConstructionRealtime(pkg);
+                    } catch (err) {
+                      console.error('[DataService] Error mapping realtime construction:', err);
+                    }
+                  }
+                } else if (payload.eventType === 'DELETE') {
+                  const deletedId = payload.old?.id;
+                  if (deletedId) {
+                    DataService.handleIncomingConstructionDelete(deletedId);
+                  }
+                }
+              }
+            )
+            .subscribe();
+          supabaseRealtimeChannels.push(constrChannel);
+
+          // F. Site Settings Table Channel
+          const settingsChannel = supabase
+            .channel('public:site_settings:realtime')
+            .on(
+              'postgres_changes',
+              { event: '*', schema: 'public', table: 'site_settings' },
+              async (payload) => {
+                console.log('[DataService] ⚡ Supabase Site Settings Realtime event:', payload.eventType);
+                if (payload.new) {
+                  try {
+                    const settings = fromSupabaseSiteSettingsRow(payload.new);
+                    DataService.handleIncomingSettingsRealtime(settings);
+                  } catch (err) {
+                    console.error('[DataService] Error mapping realtime settings:', err);
+                  }
+                }
+              }
+            )
+            .subscribe();
+          supabaseRealtimeChannels.push(settingsChannel);
+
+          // G. Projects Table Channel
+          const projChannel = supabase
+            .channel('public:projects:realtime')
+            .on(
+              'postgres_changes',
+              { event: '*', schema: 'public', table: 'projects' },
+              async (payload) => {
+                console.log('[DataService] ⚡ Supabase Projects Realtime event:', payload.eventType);
+                if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+                  if (payload.new) {
+                    try {
+                      const project = fromSupabaseProjectRow(payload.new);
+                      DataService.handleIncomingProjectRealtime(project);
+                    } catch (err) {
+                      console.error('[DataService] Error mapping realtime project:', err);
+                    }
+                  }
+                } else if (payload.eventType === 'DELETE') {
+                  const deletedId = payload.old?.id;
+                  if (deletedId) {
+                    DataService.handleIncomingProjectDelete(deletedId);
+                  }
+                }
+              }
+            )
+            .subscribe();
+          supabaseRealtimeChannels.push(projChannel);
         }
       } catch (err) {
         console.warn('[DataService] Failed to initialize Supabase Realtime channel:', err);
@@ -141,18 +318,32 @@ export class DataService {
 
     // 3. Storage event listener (Cross-tab backup)
     window.addEventListener('storage', (e) => {
-      if (e.key === 'pr_properties_v2' && e.newValue) {
+      if (e.key && e.newValue) {
         try {
           const parsed = JSON.parse(e.newValue);
           if (parsed?.data) {
-            memoryCache.properties = parsed;
-            syncListeners.forEach((fn) => fn('PROPERTY_SAVED', { allProperties: parsed.data }));
+            if (e.key === 'pr_properties_v2') {
+              memoryCache.properties = parsed;
+              syncListeners.forEach((fn) => fn('PROPERTY_SAVED', { allProperties: parsed.data }));
+            } else if (e.key === 'pr_news_v2') {
+              memoryCache.news = parsed;
+              syncListeners.forEach((fn) => fn('NEWS_SAVED', { allNews: parsed.data }));
+            } else if (e.key === 'pr_services_v2') {
+              memoryCache.prServices = parsed;
+              syncListeners.forEach((fn) => fn('PR_SERVICE_SAVED', { allPRServices: parsed.data }));
+            } else if (e.key === 'pr_leads_v2') {
+              memoryCache.leads = parsed;
+              syncListeners.forEach((fn) => fn('LEAD_SAVED', { allLeads: parsed.data }));
+            } else if (e.key === 'pr_site_settings_v2') {
+              memoryCache.siteSettings = parsed;
+              syncListeners.forEach((fn) => fn('SETTINGS_SAVED', { siteSettings: parsed.data }));
+            }
           }
         } catch (err) {}
       }
     });
 
-    // 4. Server-Sent Events (SSE) for Real-Time Cross-Device Sync (Mobile <-> Desktop <-> Tablet)
+    // 4. Server-Sent Events (SSE) for Real-Time Cross-Device Sync (Mobile <-> Desktop)
     let eventSource: EventSource | null = null;
 
     function connectSSE() {
@@ -168,9 +359,7 @@ export class DataService {
             if (data?.type && data.type !== 'CONNECTED') {
               DataService.handleIncomingRealtimeUpdate(data.type, data.payload);
             }
-          } catch (err) {
-            // Ping or non-json message
-          }
+          } catch (err) {}
         };
 
         eventSource.onerror = () => {
@@ -178,7 +367,6 @@ export class DataService {
             eventSource.close();
             eventSource = null;
           }
-          // Reconnect after 3 seconds
           setTimeout(connectSSE, 3000);
         };
       } catch (err) {
@@ -195,25 +383,27 @@ export class DataService {
     window.addEventListener('visibilitychange', handleFocusOrVisible);
     window.addEventListener('focus', handleFocusOrVisible);
 
-    // 6. Background Fallback Poller (Every 3 seconds - checks lightweight version number)
+    // 6. Background Fallback Poller (Every 4 seconds)
     const pollerTimer = setInterval(() => {
       DataService.checkForServerUpdates();
-    }, 3000);
+    }, 4000);
 
     return () => {
       if (onUpdateCallback) syncListeners.delete(onUpdateCallback);
       if (eventSource) eventSource.close();
-      if (supabaseRealtimeChannel && typeof supabaseRealtimeChannel.unsubscribe === 'function') {
-        supabaseRealtimeChannel.unsubscribe();
-        supabaseRealtimeChannel = null;
-      }
+      supabaseRealtimeChannels.forEach((ch) => {
+        if (ch && typeof ch.unsubscribe === 'function') {
+          ch.unsubscribe();
+        }
+      });
+      supabaseRealtimeChannels = [];
       window.removeEventListener('visibilitychange', handleFocusOrVisible);
       window.removeEventListener('focus', handleFocusOrVisible);
       clearInterval(pollerTimer);
     };
   }
 
-  // Handle incoming Supabase realtime property changes
+  // Realtime Handlers for Individual Entities
   private static handleIncomingPropertyRealtime(property: Property, eventType: 'INSERT' | 'UPDATE') {
     const currentList = memoryCache.properties?.data || [];
     const index = currentList.findIndex((p) => p.id === property.id);
@@ -233,13 +423,10 @@ export class DataService {
     syncListeners.forEach((fn) => {
       try {
         fn(eventName, { property, allProperties: updatedList });
-      } catch (err) {
-        console.error('Error in sync listener:', err);
-      }
+      } catch (err) {}
     });
   }
 
-  // Handle incoming Supabase realtime property deletion
   private static handleIncomingPropertyDelete(id: string) {
     const currentList = memoryCache.properties?.data || [];
     const updatedList = currentList.filter((p) => p.id !== id);
@@ -250,9 +437,198 @@ export class DataService {
     syncListeners.forEach((fn) => {
       try {
         fn('PROPERTY_DELETED', { id, allProperties: updatedList });
-      } catch (err) {
-        console.error('Error in sync listener:', err);
-      }
+      } catch (err) {}
+    });
+  }
+
+  private static handleIncomingNewsRealtime(item: NewsItem) {
+    const currentList = memoryCache.news?.data || [];
+    const index = currentList.findIndex((n) => n.id === item.id);
+    let updatedList: NewsItem[];
+
+    if (index >= 0) {
+      updatedList = [...currentList];
+      updatedList[index] = item;
+    } else {
+      updatedList = [item, ...currentList];
+    }
+
+    memoryCache.news = { data: updatedList, timestamp: Date.now() };
+    saveToStorage('pr_news_v2', updatedList);
+
+    syncListeners.forEach((fn) => {
+      try {
+        fn('NEWS_SAVED', { newsItem: item, allNews: updatedList });
+      } catch (err) {}
+    });
+  }
+
+  private static handleIncomingNewsDelete(id: string) {
+    const currentList = memoryCache.news?.data || [];
+    const updatedList = currentList.filter((n) => n.id !== id);
+
+    memoryCache.news = { data: updatedList, timestamp: Date.now() };
+    saveToStorage('pr_news_v2', updatedList);
+
+    syncListeners.forEach((fn) => {
+      try {
+        fn('NEWS_DELETED', { id, allNews: updatedList });
+      } catch (err) {}
+    });
+  }
+
+  private static handleIncomingPRServiceRealtime(service: PRServiceItem) {
+    const currentList = memoryCache.prServices?.data || [];
+    const index = currentList.findIndex((s) => s.id === service.id);
+    let updatedList: PRServiceItem[];
+
+    if (index >= 0) {
+      updatedList = [...currentList];
+      updatedList[index] = service;
+    } else {
+      updatedList = [service, ...currentList];
+    }
+
+    memoryCache.prServices = { data: updatedList, timestamp: Date.now() };
+    saveToStorage('pr_services_v2', updatedList);
+
+    syncListeners.forEach((fn) => {
+      try {
+        fn('PR_SERVICE_SAVED', { prService: service, allPRServices: updatedList });
+      } catch (err) {}
+    });
+  }
+
+  private static handleIncomingPRServiceDelete(id: string) {
+    const currentList = memoryCache.prServices?.data || [];
+    const updatedList = currentList.filter((s) => s.id !== id);
+
+    memoryCache.prServices = { data: updatedList, timestamp: Date.now() };
+    saveToStorage('pr_services_v2', updatedList);
+
+    syncListeners.forEach((fn) => {
+      try {
+        fn('PR_SERVICE_DELETED', { id, allPRServices: updatedList });
+      } catch (err) {}
+    });
+  }
+
+  private static handleIncomingLeadRealtime(lead: Lead) {
+    const currentList = memoryCache.leads?.data || [];
+    const index = currentList.findIndex((l) => l.id === lead.id);
+    let updatedList: Lead[];
+
+    if (index >= 0) {
+      updatedList = [...currentList];
+      updatedList[index] = lead;
+    } else {
+      updatedList = [lead, ...currentList];
+    }
+
+    memoryCache.leads = { data: updatedList, timestamp: Date.now() };
+    saveToStorage('pr_leads_v2', updatedList);
+
+    syncListeners.forEach((fn) => {
+      try {
+        fn('LEAD_SAVED', { lead, allLeads: updatedList });
+      } catch (err) {}
+    });
+  }
+
+  private static handleIncomingLeadDelete(id: string) {
+    const currentList = memoryCache.leads?.data || [];
+    const updatedList = currentList.filter((l) => l.id !== id);
+
+    memoryCache.leads = { data: updatedList, timestamp: Date.now() };
+    saveToStorage('pr_leads_v2', updatedList);
+
+    syncListeners.forEach((fn) => {
+      try {
+        fn('LEAD_DELETED', { id, allLeads: updatedList });
+      } catch (err) {}
+    });
+  }
+
+  private static handleIncomingConstructionRealtime(pkg: ConstructionPackage) {
+    const currentList = memoryCache.construction?.data || [];
+    const index = currentList.findIndex((c) => c.id === pkg.id);
+    let updatedList: ConstructionPackage[];
+
+    if (index >= 0) {
+      updatedList = [...currentList];
+      updatedList[index] = pkg;
+    } else {
+      updatedList = [pkg, ...currentList];
+    }
+
+    memoryCache.construction = { data: updatedList, timestamp: Date.now() };
+    saveToStorage('pr_construction_v2', updatedList);
+
+    syncListeners.forEach((fn) => {
+      try {
+        fn('CONSTRUCTION_SAVED', { package: pkg, allConstruction: updatedList });
+      } catch (err) {}
+    });
+  }
+
+  private static handleIncomingConstructionDelete(id: string) {
+    const currentList = memoryCache.construction?.data || [];
+    const updatedList = currentList.filter((c) => c.id !== id);
+
+    memoryCache.construction = { data: updatedList, timestamp: Date.now() };
+    saveToStorage('pr_construction_v2', updatedList);
+
+    syncListeners.forEach((fn) => {
+      try {
+        fn('CONSTRUCTION_DELETED', { id, allConstruction: updatedList });
+      } catch (err) {}
+    });
+  }
+
+  private static handleIncomingSettingsRealtime(settings: SiteSettings) {
+    memoryCache.siteSettings = { data: settings, timestamp: Date.now() };
+    saveToStorage('pr_site_settings_v2', settings);
+
+    syncListeners.forEach((fn) => {
+      try {
+        fn('SETTINGS_SAVED', { siteSettings: settings });
+      } catch (err) {}
+    });
+  }
+
+  private static handleIncomingProjectRealtime(project: Project) {
+    const currentList = memoryCache.projects?.data || [];
+    const index = currentList.findIndex((p) => p.id === project.id);
+    let updatedList: Project[];
+
+    if (index >= 0) {
+      updatedList = [...currentList];
+      updatedList[index] = project;
+    } else {
+      updatedList = [project, ...currentList];
+    }
+
+    memoryCache.projects = { data: updatedList, timestamp: Date.now() };
+    saveToStorage('pr_projects_v2', updatedList);
+
+    syncListeners.forEach((fn) => {
+      try {
+        fn('PROJECT_SAVED', { project, allProjects: updatedList });
+      } catch (err) {}
+    });
+  }
+
+  private static handleIncomingProjectDelete(id: string) {
+    const currentList = memoryCache.projects?.data || [];
+    const updatedList = currentList.filter((p) => p.id !== id);
+
+    memoryCache.projects = { data: updatedList, timestamp: Date.now() };
+    saveToStorage('pr_projects_v2', updatedList);
+
+    syncListeners.forEach((fn) => {
+      try {
+        fn('PROJECT_DELETED', { id, allProjects: updatedList });
+      } catch (err) {}
     });
   }
 
@@ -260,7 +636,6 @@ export class DataService {
   static async checkForServerUpdates() {
     try {
       if (isSupabaseConfigured()) {
-        // If Supabase is active, we rely on Supabase Realtime
         return;
       }
       const res = await fetch('/api/sync/version');
@@ -276,7 +651,7 @@ export class DataService {
     } catch (e) {}
   }
 
-  // Handle incoming real-time messages
+  // Handle incoming real-time messages from local BroadcastChannel or SSE
   private static handleIncomingRealtimeUpdate(type: string, payload: any) {
     if (type === 'PROPERTY_SAVED' || type === 'PROPERTY_APPROVED' || type === 'PROPERTY_DELETED') {
       if (payload?.allProperties) {
@@ -366,7 +741,6 @@ export class DataService {
   // 1. PROPERTIES (SUPABASE PRIMARY SOURCE OF TRUTH)
   // -----------------------------------------------------------------
   static async getProperties(forceRefresh = false): Promise<Property[]> {
-    // 1. SUPABASE AS PRIMARY SOURCE OF TRUTH (When Configured)
     if (isSupabaseConfigured()) {
       try {
         const supabase = getSupabaseClient();
@@ -374,16 +748,13 @@ export class DataService {
           throw new Error('Supabase client failed to initialize');
         }
 
-        console.log('[PropertyService] Fetching properties from Supabase source of truth...');
-        
+        console.log('[PropertyService] Fetching properties from Supabase...');
         let { data, error } = await supabase
           .from('properties')
           .select('*')
           .order('created_at', { ascending: false });
 
-        // Fallback query if created_at column is not present or uses camelCase
         if (error && (error.code === '42703' || error.message?.toLowerCase().includes('created_at'))) {
-          console.warn('[PropertyService] Retrying fetch without created_at order...', error.message);
           const fallbackRes = await supabase.from('properties').select('*');
           data = fallbackRes.data;
           error = fallbackRes.error;
@@ -391,26 +762,20 @@ export class DataService {
 
         if (error) {
           console.error('[PropertyService] Supabase getProperties error:', error);
-          throw new Error(`[PropertyService] Supabase query failed: ${error.message || JSON.stringify(error)}`);
+          throw new Error(`Supabase query failed: ${error.message}`);
         }
 
-        // Map rows to Property objects
         const propertiesList: Property[] = (data || []).map(fromSupabaseRow);
-        console.log(`[PropertyService] Successfully loaded ${propertiesList.length} properties from Supabase.`);
-
-        // Cache result for quick access
         memoryCache.properties = { data: propertiesList, timestamp: Date.now() };
         saveToStorage('pr_properties_v2', propertiesList);
 
         return propertiesList;
       } catch (err) {
         console.error('[PropertyService] Supabase fetch failed:', err);
-        // Do not swallow Supabase errors when it is configured
         throw err;
       }
     }
 
-    // 2. FALLBACK ENVIRONMENT (Only when Supabase is NOT configured)
     if (!forceRefresh && memoryCache.properties && Date.now() - memoryCache.properties.timestamp < CACHE_TTL_MS) {
       return memoryCache.properties.data;
     }
@@ -445,45 +810,31 @@ export class DataService {
       id: property.id,
       title: property.title,
       status: property.status,
-      userRole: property.userRole,
     });
 
-    // 1. SUPABASE AS PRIMARY PERSISTENCE (When configured)
     if (isSupabaseConfigured()) {
       const supabase = getSupabaseClient();
       if (!supabase) {
-        throw new Error('Supabase client is not available. Please verify credentials in Admin Panel.');
+        throw new Error('Supabase client is not available. Please verify credentials.');
       }
 
-      const rowPayload = toSupabaseRow(property);
-      console.log('[PropertyService] Upserting row to Supabase properties table...', rowPayload.id);
+      const supabaseRow = toSupabaseRow(property);
+      console.log('[PropertyService] Upserting row to Supabase properties table:', supabaseRow.id);
 
       const { data, error } = await supabase
         .from('properties')
-        .upsert(rowPayload, { onConflict: 'id' })
+        .upsert(supabaseRow, { onConflict: 'id' })
         .select();
 
       if (error) {
-        console.error('[PropertyService] Supabase insert failed:', error);
-        throw new Error(`[PropertyService] Supabase insert failed: ${error.message || JSON.stringify(error)}`);
+        console.error('[PropertyService] Supabase upsert error:', error);
+        throw new Error(`Failed to save property to database: ${error.message}`);
       }
 
-      console.log('[PropertyService] Supabase insert succeeded:', data);
-
-      // Async sync to local Express backend for backup / multi-protocol clients
-      fetch('/api/properties', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(property),
-      }).catch(() => {});
-
-      // Fetch fresh authoritative list from Supabase
+      console.log('[PropertyService] Supabase upsert successful:', data);
       const updatedList = await this.getProperties(true);
 
-      // Broadcast local event
       this.broadcastLocal('PROPERTY_SAVED', { property, allProperties: updatedList });
-
-      // Notify UI listeners
       syncListeners.forEach((fn) => {
         try {
           fn('PROPERTY_SAVED', { property, allProperties: updatedList });
@@ -493,7 +844,6 @@ export class DataService {
       return updatedList;
     }
 
-    // 2. STANDALONE / LOCAL FALLBACK (When Supabase is not configured)
     const current = await this.getProperties();
     const index = current.findIndex((p) => p.id === property.id);
     let updated: Property[];
@@ -510,22 +860,18 @@ export class DataService {
     this.broadcastLocal('PROPERTY_SAVED', { property, allProperties: updated });
 
     try {
-      const res = await fetch('/api/properties', {
+      await fetch('/api/properties', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(property),
       });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.data) {
-          updated = json.data;
-          memoryCache.properties = { data: updated, timestamp: Date.now() };
-          saveToStorage('pr_properties_v2', updated);
-        }
-      }
-    } catch (err) {
-      console.warn('Backend server save property warning:', err);
-    }
+    } catch (e) {}
+
+    syncListeners.forEach((fn) => {
+      try {
+        fn('PROPERTY_SAVED', { property, allProperties: updated });
+      } catch (e) {}
+    });
 
     return updated;
   }
@@ -591,8 +937,7 @@ export class DataService {
         throw new Error('Supabase client not available');
       }
 
-      // Mark as REJECTED in Supabase
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('properties')
         .update({
           status: 'REJECTED',
@@ -668,9 +1013,36 @@ export class DataService {
   }
 
   // -----------------------------------------------------------------
-  // 2. NEWS ITEMS
+  // 2. NEWS ITEMS (SUPABASE REALTIME SYNC)
   // -----------------------------------------------------------------
   static async getNews(forceRefresh = false): Promise<NewsItem[]> {
+    if (isSupabaseConfigured()) {
+      try {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+          let { data, error } = await supabase
+            .from('news_items')
+            .select('*')
+            .order('published_at', { ascending: false });
+
+          if (error) {
+            const fallbackRes = await supabase.from('news_items').select('*');
+            data = fallbackRes.data;
+            error = fallbackRes.error;
+          }
+
+          if (!error && data && data.length > 0) {
+            const newsList: NewsItem[] = data.map(fromSupabaseNewsRow);
+            memoryCache.news = { data: newsList, timestamp: Date.now() };
+            saveToStorage('pr_news_v2', newsList);
+            return newsList;
+          }
+        }
+      } catch (err) {
+        console.warn('Supabase fetch news failed:', err);
+      }
+    }
+
     if (!forceRefresh && memoryCache.news && Date.now() - memoryCache.news.timestamp < CACHE_TTL_MS) {
       return memoryCache.news.data;
     }
@@ -701,22 +1073,6 @@ export class DataService {
     }
 
     let result: NewsItem[] = stored?.data || initialNews;
-
-    if (isSupabaseConfigured()) {
-      try {
-        const supabase = getSupabaseClient();
-        if (supabase) {
-          const { data, error } = await supabase.from('news_items').select('*').order('publishedAt', { ascending: false });
-          if (!error && data && data.length > 0) {
-            result = data as NewsItem[];
-          }
-        }
-      } catch (err) {
-        console.warn('Supabase fetch news failed:', err);
-      }
-    }
-
-    // Auto-normalize any legacy "Policy Update" category to "Latest Update"
     result = result.map((item) => {
       if (item.category === 'Policy Update' || item.category === 'Policy Updates') {
         return { ...item, category: 'Latest Update' };
@@ -757,7 +1113,8 @@ export class DataService {
       try {
         const supabase = getSupabaseClient();
         if (supabase) {
-          await supabase.from('news_items').upsert(item, { onConflict: 'id' });
+          const row = toSupabaseNewsRow(item);
+          await supabase.from('news_items').upsert(row, { onConflict: 'id' });
         }
       } catch (err) {
         console.warn('Supabase save news warning:', err);
@@ -794,9 +1151,30 @@ export class DataService {
   }
 
   // -----------------------------------------------------------------
-  // 3. PR SERVICES
+  // 3. PR SERVICES (SUPABASE REALTIME SYNC)
   // -----------------------------------------------------------------
   static async getPRServices(forceRefresh = false): Promise<PRServiceItem[]> {
+    if (isSupabaseConfigured()) {
+      try {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+          let { data, error } = await supabase.from('pr_services').select('*').order('order', { ascending: true });
+          if (error) {
+            const fallbackRes = await supabase.from('pr_services').select('*');
+            data = fallbackRes.data;
+          }
+          if (data && data.length > 0) {
+            const list: PRServiceItem[] = data.map(fromSupabasePRServiceRow);
+            memoryCache.prServices = { data: list, timestamp: Date.now() };
+            saveToStorage('pr_services_v2', list);
+            return list;
+          }
+        }
+      } catch (err) {
+        console.warn('Supabase fetch PR services failed:', err);
+      }
+    }
+
     if (!forceRefresh && memoryCache.prServices && Date.now() - memoryCache.prServices.timestamp < CACHE_TTL_MS) {
       return memoryCache.prServices.data;
     }
@@ -820,21 +1198,6 @@ export class DataService {
     }
 
     let result: PRServiceItem[] = stored?.data || initialPRServices;
-
-    if (isSupabaseConfigured()) {
-      try {
-        const supabase = getSupabaseClient();
-        if (supabase) {
-          const { data, error } = await supabase.from('pr_services').select('*').order('order', { ascending: true });
-          if (!error && data && data.length > 0) {
-            result = data as PRServiceItem[];
-          }
-        }
-      } catch (err) {
-        console.warn('Supabase fetch PR services failed:', err);
-      }
-    }
-
     memoryCache.prServices = { data: result, timestamp: Date.now() };
     saveToStorage('pr_services_v2', result);
     return result;
@@ -868,7 +1231,8 @@ export class DataService {
       try {
         const supabase = getSupabaseClient();
         if (supabase) {
-          await supabase.from('pr_services').upsert(service, { onConflict: 'id' });
+          const row = toSupabasePRServiceRow(service);
+          await supabase.from('pr_services').upsert(row, { onConflict: 'id' });
         }
       } catch (err) {
         console.warn('Supabase save PR service warning:', err);
@@ -905,9 +1269,30 @@ export class DataService {
   }
 
   // -----------------------------------------------------------------
-  // 4. LEADS
+  // 4. LEADS (SUPABASE REALTIME SYNC)
   // -----------------------------------------------------------------
   static async getLeads(forceRefresh = false): Promise<Lead[]> {
+    if (isSupabaseConfigured()) {
+      try {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+          let { data, error } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
+          if (error) {
+            const fallbackRes = await supabase.from('leads').select('*');
+            data = fallbackRes.data;
+          }
+          if (data && data.length > 0) {
+            const list: Lead[] = data.map(fromSupabaseLeadRow);
+            memoryCache.leads = { data: list, timestamp: Date.now() };
+            saveToStorage('pr_leads_v2', list);
+            return list;
+          }
+        }
+      } catch (err) {
+        console.warn('Supabase fetch leads failed:', err);
+      }
+    }
+
     if (!forceRefresh && memoryCache.leads && Date.now() - memoryCache.leads.timestamp < CACHE_TTL_MS) {
       return memoryCache.leads.data;
     }
@@ -931,21 +1316,6 @@ export class DataService {
     }
 
     let result: Lead[] = stored?.data || initialLeads;
-
-    if (isSupabaseConfigured()) {
-      try {
-        const supabase = getSupabaseClient();
-        if (supabase) {
-          const { data, error } = await supabase.from('leads').select('*').order('createdAt', { ascending: false });
-          if (!error && data && data.length > 0) {
-            result = data as Lead[];
-          }
-        }
-      } catch (err) {
-        console.warn('Supabase fetch leads failed:', err);
-      }
-    }
-
     memoryCache.leads = { data: result, timestamp: Date.now() };
     saveToStorage('pr_leads_v2', result);
     return result;
@@ -979,7 +1349,8 @@ export class DataService {
       try {
         const supabase = getSupabaseClient();
         if (supabase) {
-          await supabase.from('leads').upsert(lead, { onConflict: 'id' });
+          const row = toSupabaseLeadRow(lead);
+          await supabase.from('leads').upsert(row, { onConflict: 'id' });
         }
       } catch (err) {
         console.warn('Supabase save lead warning:', err);
@@ -1016,9 +1387,26 @@ export class DataService {
   }
 
   // -----------------------------------------------------------------
-  // 5. CONSTRUCTION PACKAGES
+  // 5. CONSTRUCTION PACKAGES (SUPABASE REALTIME SYNC)
   // -----------------------------------------------------------------
   static async getConstructionPackages(forceRefresh = false): Promise<ConstructionPackage[]> {
+    if (isSupabaseConfigured()) {
+      try {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+          const { data, error } = await supabase.from('construction_packages').select('*');
+          if (!error && data && data.length > 0) {
+            const list: ConstructionPackage[] = data.map(fromSupabaseConstructionRow);
+            memoryCache.construction = { data: list, timestamp: Date.now() };
+            saveToStorage('pr_construction_v2', list);
+            return list;
+          }
+        }
+      } catch (err) {
+        console.warn('Supabase fetch construction packages failed:', err);
+      }
+    }
+
     if (!forceRefresh && memoryCache.construction && Date.now() - memoryCache.construction.timestamp < CACHE_TTL_MS) {
       return memoryCache.construction.data;
     }
@@ -1042,21 +1430,6 @@ export class DataService {
     }
 
     let result: ConstructionPackage[] = stored?.data || initialConstructionPackages;
-
-    if (isSupabaseConfigured()) {
-      try {
-        const supabase = getSupabaseClient();
-        if (supabase) {
-          const { data, error } = await supabase.from('construction_packages').select('*');
-          if (!error && data && data.length > 0) {
-            result = data as ConstructionPackage[];
-          }
-        }
-      } catch (err) {
-        console.warn('Supabase fetch construction packages failed:', err);
-      }
-    }
-
     memoryCache.construction = { data: result, timestamp: Date.now() };
     saveToStorage('pr_construction_v2', result);
     return result;
@@ -1090,7 +1463,8 @@ export class DataService {
       try {
         const supabase = getSupabaseClient();
         if (supabase) {
-          await supabase.from('construction_packages').upsert(pkg, { onConflict: 'id' });
+          const row = toSupabaseConstructionRow(pkg);
+          await supabase.from('construction_packages').upsert(row, { onConflict: 'id' });
         }
       } catch (err) {
         console.warn('Supabase save construction warning:', err);
@@ -1127,9 +1501,26 @@ export class DataService {
   }
 
   // -----------------------------------------------------------------
-  // 6. SITE SETTINGS
+  // 6. SITE SETTINGS (SUPABASE REALTIME SYNC)
   // -----------------------------------------------------------------
   static async getSiteSettings(forceRefresh = false): Promise<SiteSettings> {
+    if (isSupabaseConfigured()) {
+      try {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+          const { data, error } = await supabase.from('site_settings').select('*').limit(1).single();
+          if (!error && data) {
+            const settings = fromSupabaseSiteSettingsRow(data);
+            memoryCache.siteSettings = { data: settings, timestamp: Date.now() };
+            saveToStorage('pr_site_settings_v2', settings);
+            return settings;
+          }
+        }
+      } catch (err) {
+        console.warn('Supabase fetch site settings failed:', err);
+      }
+    }
+
     if (!forceRefresh && memoryCache.siteSettings && Date.now() - memoryCache.siteSettings.timestamp < CACHE_TTL_MS) {
       return memoryCache.siteSettings.data;
     }
@@ -1153,21 +1544,6 @@ export class DataService {
     }
 
     let result: SiteSettings = stored?.data || initialSiteSettings;
-
-    if (isSupabaseConfigured()) {
-      try {
-        const supabase = getSupabaseClient();
-        if (supabase) {
-          const { data, error } = await supabase.from('site_settings').select('*').limit(1).single();
-          if (!error && data) {
-            result = data as SiteSettings;
-          }
-        }
-      } catch (err) {
-        console.warn('Supabase fetch site settings failed:', err);
-      }
-    }
-
     memoryCache.siteSettings = { data: result, timestamp: Date.now() };
     saveToStorage('pr_site_settings_v2', result);
     return result;
@@ -1190,7 +1566,8 @@ export class DataService {
       try {
         const supabase = getSupabaseClient();
         if (supabase) {
-          await supabase.from('site_settings').upsert({ id: 'main_settings', ...settings }, { onConflict: 'id' });
+          const row = toSupabaseSiteSettingsRow(settings);
+          await supabase.from('site_settings').upsert(row, { onConflict: 'id' });
         }
       } catch (err) {
         console.warn('Supabase save site settings warning:', err);
@@ -1201,9 +1578,26 @@ export class DataService {
   }
 
   // -----------------------------------------------------------------
-  // 7. EXCLUSIVE PROJECTS
+  // 7. EXCLUSIVE PROJECTS (SUPABASE REALTIME SYNC)
   // -----------------------------------------------------------------
   static async getProjects(forceRefresh = false): Promise<Project[]> {
+    if (isSupabaseConfigured()) {
+      try {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+          const { data, error } = await supabase.from('projects').select('*');
+          if (!error && data && data.length > 0) {
+            const list: Project[] = data.map(fromSupabaseProjectRow);
+            memoryCache.projects = { data: list, timestamp: Date.now() };
+            saveToStorage('pr_projects_v2', list);
+            return list;
+          }
+        }
+      } catch (err) {
+        console.warn('Supabase fetch projects failed:', err);
+      }
+    }
+
     if (!forceRefresh && memoryCache.projects && Date.now() - memoryCache.projects.timestamp < CACHE_TTL_MS) {
       return memoryCache.projects.data;
     }
@@ -1227,21 +1621,6 @@ export class DataService {
     }
 
     let result: Project[] = stored?.data || initialProjects;
-
-    if (isSupabaseConfigured()) {
-      try {
-        const supabase = getSupabaseClient();
-        if (supabase) {
-          const { data, error } = await supabase.from('projects').select('*');
-          if (!error && data && data.length > 0) {
-            result = data as Project[];
-          }
-        }
-      } catch (err) {
-        console.warn('Supabase fetch projects failed:', err);
-      }
-    }
-
     memoryCache.projects = { data: result, timestamp: Date.now() };
     saveToStorage('pr_projects_v2', result);
     return result;
@@ -1275,7 +1654,8 @@ export class DataService {
       try {
         const supabase = getSupabaseClient();
         if (supabase) {
-          await supabase.from('projects').upsert(project, { onConflict: 'id' });
+          const row = toSupabaseProjectRow(project);
+          await supabase.from('projects').upsert(row, { onConflict: 'id' });
         }
       } catch (err) {
         console.warn('Supabase save project warning:', err);
@@ -1353,9 +1733,8 @@ export class DataService {
   // Get Supabase SQL Schema for setup
   static getSupabaseSQLSchema(): string {
     return `-- =========================================================================
--- THE MARS TV - SUPABASE PROPERTIES & ADMIN SCHEMAS (FULL SYNC)
+-- THE MARS TV - COMPLETE SUPABASE REAL ESTATE SCHEMA & REALTIME SYNC
 -- =========================================================================
-
 -- 1. PROPERTIES TABLE
 CREATE TABLE IF NOT EXISTS public.properties (
     id TEXT PRIMARY KEY,
@@ -1406,107 +1785,147 @@ CREATE TABLE IF NOT EXISTS public.properties (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Ensure all columns exist on existing table
-ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS submission_id TEXT;
-ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS sub_category TEXT;
-ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS locality TEXT;
-ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS address TEXT;
-ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS pincode TEXT;
-ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS coordinates TEXT;
-ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS lat DOUBLE PRECISION;
-ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS lng DOUBLE PRECISION;
-ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS price_per_sq_ft NUMERIC;
-ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS maintenance_charges NUMERIC;
-ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS possession_status TEXT DEFAULT 'READY_TO_MOVE';
-ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS possession_date TEXT;
-ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS approval_authority TEXT;
-ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS ownership_proof_doc TEXT;
-ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS user_role TEXT DEFAULT 'DEVELOPER';
-ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS contact_name TEXT;
-ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS contact_phone TEXT;
-ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS contact_email TEXT;
-ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS agency_name TEXT;
-ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS is_phone_verified BOOLEAN DEFAULT FALSE;
-ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
-
 -- 2. NEWS ITEMS TABLE
 CREATE TABLE IF NOT EXISTS public.news_items (
-  id TEXT PRIMARY KEY,
-  title TEXT NOT NULL,
-  slug TEXT,
-  excerpt TEXT,
-  content TEXT,
-  category TEXT,
-  region TEXT DEFAULT 'India',
-  image TEXT,
-  author TEXT,
-  "publishedAt" TIMESTAMPTZ DEFAULT NOW(),
-  "isFeatured" BOOLEAN DEFAULT false,
-  status TEXT DEFAULT 'PUBLISHED',
-  "viewCount" INT DEFAULT 0
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    slug TEXT,
+    excerpt TEXT,
+    content TEXT,
+    category TEXT DEFAULT 'Indore Real Estate',
+    region TEXT DEFAULT 'India',
+    image TEXT,
+    author TEXT DEFAULT 'The Mars TV News Desk',
+    published_at TIMESTAMPTZ DEFAULT NOW(),
+    publishedAt TIMESTAMPTZ DEFAULT NOW(),
+    is_featured BOOLEAN DEFAULT FALSE,
+    isFeatured BOOLEAN DEFAULT FALSE,
+    status TEXT DEFAULT 'PUBLISHED',
+    view_count INT DEFAULT 120,
+    viewCount INT DEFAULT 120,
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- 3. PR SERVICES TABLE
 CREATE TABLE IF NOT EXISTS public.pr_services (
-  id TEXT PRIMARY KEY,
-  title TEXT NOT NULL,
-  slug TEXT,
-  description TEXT,
-  icon TEXT,
-  "isActive" BOOLEAN DEFAULT true,
-  "order" INT DEFAULT 1
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    tagline TEXT,
+    description TEXT,
+    icon_name TEXT DEFAULT 'Megaphone',
+    iconName TEXT DEFAULT 'Megaphone',
+    deliverables JSONB DEFAULT '[]'::jsonb,
+    price_starting_from TEXT DEFAULT '₹ 25,000',
+    priceStartingFrom TEXT DEFAULT '₹ 25,000',
+    price_numeric NUMERIC DEFAULT 25000,
+    priceNumeric NUMERIC DEFAULT 25000,
+    highlight BOOLEAN DEFAULT FALSE,
+    "order" INT DEFAULT 1,
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- 4. LEADS TABLE
 CREATE TABLE IF NOT EXISTS public.leads (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  email TEXT,
-  phone TEXT NOT NULL,
-  message TEXT,
-  "leadType" TEXT,
-  status TEXT DEFAULT 'NEW',
-  source TEXT,
-  "propertyTitle" TEXT,
-  "createdAt" TIMESTAMPTZ DEFAULT NOW()
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT,
+    phone TEXT NOT NULL,
+    message TEXT,
+    lead_type TEXT DEFAULT 'PROPERTY_ENQUIRY',
+    leadType TEXT DEFAULT 'PROPERTY_ENQUIRY',
+    status TEXT DEFAULT 'NEW',
+    source TEXT DEFAULT 'WEBSITE',
+    property_id TEXT,
+    propertyId TEXT,
+    property_title TEXT,
+    propertyTitle TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    createdAt TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- 5. CONSTRUCTION PACKAGES TABLE
 CREATE TABLE IF NOT EXISTS public.construction_packages (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  "ratePerSqFt" NUMERIC,
-  "rateLabel" TEXT,
-  badge TEXT,
-  description TEXT,
-  features JSONB DEFAULT '[]'::jsonb,
-  "isPopular" BOOLEAN DEFAULT false
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    price_per_sq_ft NUMERIC NOT NULL DEFAULT 1650,
+    pricePerSqFt NUMERIC DEFAULT 1650,
+    description TEXT,
+    features JSONB DEFAULT '[]'::jsonb,
+    is_popular BOOLEAN DEFAULT FALSE,
+    isPopular BOOLEAN DEFAULT FALSE,
+    steel_grade TEXT DEFAULT 'Fe-500',
+    steelGrade TEXT DEFAULT 'Fe-500',
+    cement_grade TEXT DEFAULT 'Grade 53',
+    cementGrade TEXT DEFAULT 'Grade 53',
+    warranty_years INT DEFAULT 5,
+    warrantyYears INT DEFAULT 5,
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- 6. SITE SETTINGS TABLE
 CREATE TABLE IF NOT EXISTS public.site_settings (
-  id TEXT PRIMARY KEY DEFAULT 'main_settings',
-  "siteName" TEXT,
-  tagline TEXT,
-  "heroHeadline" TEXT,
-  "heroSubheadline" TEXT,
-  "phonePrimary" TEXT,
-  "phoneSecondary" TEXT,
-  "emailContact" TEXT,
-  "whatsappNumber" TEXT,
-  "officeAddress" TEXT,
-  "reraRegistrationNo" TEXT,
-  "aboutText" TEXT,
-  "activePromotionalBanner" TEXT
+    id TEXT PRIMARY KEY DEFAULT 'main_settings',
+    site_name TEXT DEFAULT 'The Mars TV',
+    siteName TEXT DEFAULT 'The Mars TV',
+    tagline TEXT DEFAULT 'Central India’s Premier Real Estate Portal',
+    contact_email TEXT DEFAULT 'support@themarstv.in',
+    contactEmail TEXT DEFAULT 'support@themarstv.in',
+    contact_phone TEXT DEFAULT '+91 123 456 7890',
+    contactPhone TEXT DEFAULT '+91 123 456 7890',
+    office_address TEXT DEFAULT '101-104 The Mars TV Tower, Vijay Nagar Square, Indore, MP 452001',
+    officeAddress TEXT DEFAULT '101-104 The Mars TV Tower, Vijay Nagar Square, Indore, MP 452001',
+    rera_reg_no TEXT DEFAULT 'RERA/MP/IND/2024/09912',
+    reraRegNo TEXT DEFAULT 'RERA/MP/IND/2024/09912',
+    gstin TEXT DEFAULT '23AABCT1234F1Z5',
+    facebook_url TEXT DEFAULT '#',
+    facebookUrl TEXT DEFAULT '#',
+    instagram_url TEXT DEFAULT '#',
+    instagramUrl TEXT DEFAULT '#',
+    youtube_url TEXT DEFAULT '#',
+    youtubeUrl TEXT DEFAULT '#',
+    linkedin_url TEXT DEFAULT '#',
+    linkedinUrl TEXT DEFAULT '#',
+    twitter_url TEXT DEFAULT '#',
+    twitterUrl TEXT DEFAULT '#',
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 7. ROW LEVEL SECURITY (RLS) POLICIES
+-- 7. PROJECTS TABLE
+CREATE TABLE IF NOT EXISTS public.projects (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    slug TEXT,
+    developer TEXT NOT NULL,
+    location TEXT NOT NULL,
+    city TEXT DEFAULT 'Indore',
+    price NUMERIC DEFAULT 0,
+    price_label TEXT,
+    priceLabel TEXT,
+    project_type TEXT DEFAULT 'RESIDENTIAL',
+    projectType TEXT DEFAULT 'RESIDENTIAL',
+    possession_status TEXT DEFAULT 'READY_TO_MOVE',
+    possessionStatus TEXT DEFAULT 'READY_TO_MOVE',
+    possession_date TEXT,
+    possessionDate TEXT,
+    rera_number TEXT,
+    reraNumber TEXT,
+    description TEXT,
+    image TEXT,
+    amenities JSONB DEFAULT '[]'::jsonb,
+    is_featured BOOLEAN DEFAULT TRUE,
+    isFeatured BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    createdAt TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 8. ROW LEVEL SECURITY (RLS) POLICIES
 ALTER TABLE public.properties ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.news_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pr_services ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.leads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.construction_packages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Public Read Properties" ON public.properties;
 CREATE POLICY "Public Read Properties" ON public.properties FOR SELECT USING (true);
@@ -1518,10 +1937,10 @@ CREATE POLICY "Public Read News" ON public.news_items FOR SELECT USING (true);
 DROP POLICY IF EXISTS "Public Write News" ON public.news_items;
 CREATE POLICY "Public Write News" ON public.news_items FOR ALL USING (true);
 
-DROP POLICY IF EXISTS "Public Read PR Services" ON public.pr_services;
-CREATE POLICY "Public Read PR Services" ON public.pr_services FOR SELECT USING (true);
-DROP POLICY IF EXISTS "Public Write PR Services" ON public.pr_services;
-CREATE POLICY "Public Write PR Services" ON public.pr_services FOR ALL USING (true);
+DROP POLICY IF EXISTS "Public Read PR" ON public.pr_services;
+CREATE POLICY "Public Read PR" ON public.pr_services FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Public Write PR" ON public.pr_services;
+CREATE POLICY "Public Write PR" ON public.pr_services FOR ALL USING (true);
 
 DROP POLICY IF EXISTS "Public Read Leads" ON public.leads;
 CREATE POLICY "Public Read Leads" ON public.leads FOR SELECT USING (true);
@@ -1533,27 +1952,41 @@ CREATE POLICY "Public Read Construction" ON public.construction_packages FOR SEL
 DROP POLICY IF EXISTS "Public Write Construction" ON public.construction_packages;
 CREATE POLICY "Public Write Construction" ON public.construction_packages FOR ALL USING (true);
 
-DROP POLICY IF EXISTS "Public Read Site Settings" ON public.site_settings;
-CREATE POLICY "Public Read Site Settings" ON public.site_settings FOR SELECT USING (true);
-DROP POLICY IF EXISTS "Public Write Site Settings" ON public.site_settings;
-CREATE POLICY "Public Write Site Settings" ON public.site_settings FOR ALL USING (true);
+DROP POLICY IF EXISTS "Public Read Settings" ON public.site_settings;
+CREATE POLICY "Public Read Settings" ON public.site_settings FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Public Write Settings" ON public.site_settings;
+CREATE POLICY "Public Write Settings" ON public.site_settings FOR ALL USING (true);
 
--- 8. SUPABASE REALTIME REPLICATION
+DROP POLICY IF EXISTS "Public Read Projects" ON public.projects;
+CREATE POLICY "Public Read Projects" ON public.projects FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Public Write Projects" ON public.projects;
+CREATE POLICY "Public Write Projects" ON public.projects FOR ALL USING (true);
+
+-- 9. SUPABASE REALTIME REPLICATION (Instant Live Sync)
 DO $$
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_publication_tables 
-    WHERE pubname = 'supabase_realtime' 
-    AND schemaname = 'public' 
-    AND tablename = 'properties'
-  ) THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'properties') THEN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.properties;
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'news_items') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.news_items;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'pr_services') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.pr_services;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'leads') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.leads;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'construction_packages') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.construction_packages;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'site_settings') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.site_settings;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'projects') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.projects;
+  END IF;
 END $$;
-
-CREATE INDEX IF NOT EXISTS idx_properties_status ON public.properties (status);
-CREATE INDEX IF NOT EXISTS idx_properties_city ON public.properties (city);
-CREATE INDEX IF NOT EXISTS idx_properties_created_at ON public.properties (created_at DESC);
 `;
   }
 }
