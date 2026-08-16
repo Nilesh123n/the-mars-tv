@@ -65,7 +65,7 @@ export default function App() {
   const [brandPartners] = useState(initialBrandPartners);
   const [testimonials] = useState(initialTestimonials);
 
-  // Load Initial Data from Cache / Supabase ONCE on Mount (No Loops, No Egress Spam)
+  // Load Initial Data and Initialize Real-Time Multi-Device Sync Engine
   useEffect(() => {
     let isMounted = true;
 
@@ -97,8 +97,37 @@ export default function App() {
 
     loadInitialData();
 
+    // Subscribe to multi-device real-time SSE stream & BroadcastChannel
+    const unsubscribeSync = DataService.initRealtimeSync((eventType, payload) => {
+      if (!isMounted) return;
+
+      if (payload?.allProperties) {
+        setProperties(payload.allProperties);
+      } else if (payload?.properties) {
+        setProperties(payload.properties);
+      }
+
+      if (payload?.allLeads) {
+        setLeads(payload.allLeads);
+      } else if (payload?.leads) {
+        setLeads(payload.leads);
+      }
+
+      if (payload?.allNews) {
+        setNewsItems(payload.allNews);
+      } else if (payload?.news) {
+        setNewsItems(payload.news);
+      }
+
+      if (eventType === 'PROPERTY_APPROVED') {
+        const title = payload?.property?.title || 'Listing';
+        showToast(`⚡ Live Update: "${title}" is now published and active!`);
+      }
+    });
+
     return () => {
       isMounted = false;
+      unsubscribeSync();
     };
   }, []);
 

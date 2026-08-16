@@ -10,15 +10,15 @@ import {
   initialProjects,
 } from '../data/mockData';
 
-// Cache TTL in milliseconds (10 minutes to minimize network Egress)
-const CACHE_TTL_MS = 10 * 60 * 1000;
+// Cache TTL in milliseconds (5 minutes memory fallback)
+const CACHE_TTL_MS = 5 * 60 * 1000;
 
 interface CacheEnvelope<T> {
   data: T;
   timestamp: number;
 }
 
-// Memory Cache to eliminate re-reads
+// Memory Cache
 const memoryCache: {
   properties?: CacheEnvelope<Property[]>;
   news?: CacheEnvelope<NewsItem[]>;
@@ -53,27 +53,214 @@ function readFromStorage<T>(key: string): CacheEnvelope<T> | null {
   }
 }
 
+// Multi-Tab & Cross-Device Real-Time Sync Channel
+let broadcastChannel: BroadcastChannel | null = null;
+try {
+  if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+    broadcastChannel = new BroadcastChannel('the_mars_tv_realtime_sync');
+  }
+} catch (e) {
+  // Ignore fallback
+}
+
+// Registered listeners for data updates
+type SyncListener = (eventType: string, payload: any) => void;
+const syncListeners: Set<SyncListener> = new Set();
+
+// Track last known server version for polling comparison
+let currentServerVersion = 0;
+let isRealtimeInitialized = false;
+
 export class DataService {
+  // -----------------------------------------------------------------
+  // 0. REAL-TIME MULTI-DEVICE SYNCHRONIZATION ENGINE
+  // -----------------------------------------------------------------
+  static initRealtimeSync(onUpdateCallback?: SyncListener) {
+    if (onUpdateCallback) {
+      syncListeners.add(onUpdateCallback);
+    }
+
+    if (isRealtimeInitialized || typeof window === 'undefined') {
+      return () => {
+        if (onUpdateCallback) syncListeners.delete(onUpdateCallback);
+      };
+    }
+
+    isRealtimeInitialized = true;
+
+    // 1. BroadcastChannel (Instant 0ms sync across tabs on same device)
+    if (broadcastChannel) {
+      broadcastChannel.onmessage = (event) => {
+        const { type, payload } = event.data || {};
+        if (type && payload) {
+          DataService.handleIncomingRealtimeUpdate(type, payload);
+        }
+      };
+    }
+
+    // 2. Storage event listener (Cross-tab backup)
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'pr_properties_v2' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (parsed?.data) {
+            memoryCache.properties = parsed;
+            syncListeners.forEach((fn) => fn('PROPERTY_SAVED', { allProperties: parsed.data }));
+          }
+        } catch (err) {}
+      }
+    });
+
+    // 3. Server-Sent Events (SSE) for Real-Time Cross-Device Sync (Mobile <-> Desktop <-> Tablet)
+    let eventSource: EventSource | null = null;
+
+    function connectSSE() {
+      try {
+        eventSource = new EventSource('/api/sync/events');
+
+        eventSource.onmessage = (e) => {
+          try {
+            const data = JSON.parse(e.data);
+            if (data?.version) {
+              currentServerVersion = data.version;
+            }
+            if (data?.type && data.type !== 'CONNECTED') {
+              DataService.handleIncomingRealtimeUpdate(data.type, data.payload);
+            }
+          } catch (err) {
+            // Ping or non-json message
+          }
+        };
+
+        eventSource.onerror = () => {
+          if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+          }
+          // Reconnect after 4 seconds
+          setTimeout(connectSSE, 4000);
+        };
+      } catch (err) {
+        console.warn('SSE connection failed, falling back to polling:', err);
+      }
+    }
+
+    connectSSE();
+
+    // 4. Background Fallback Poller (Every 4 seconds - checks lightweight version number)
+    const pollerTimer = setInterval(async () => {
+      try {
+        const res = await fetch('/api/sync/version');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.version && currentServerVersion && data.version > currentServerVersion) {
+            currentServerVersion = data.version;
+            // Version changed on another device! Refresh active data
+            DataService.refreshAllDataFromServer();
+          } else if (data.version && !currentServerVersion) {
+            currentServerVersion = data.version;
+          }
+        }
+      } catch (e) {
+        // Silent poll error
+      }
+    }, 4000);
+
+    return () => {
+      if (onUpdateCallback) syncListeners.delete(onUpdateCallback);
+      if (eventSource) eventSource.close();
+      clearInterval(pollerTimer);
+    };
+  }
+
+  // Handle incoming real-time messages
+  private static handleIncomingRealtimeUpdate(type: string, payload: any) {
+    if (type === 'PROPERTY_SAVED' || type === 'PROPERTY_APPROVED' || type === 'PROPERTY_DELETED') {
+      if (payload?.allProperties) {
+        memoryCache.properties = { data: payload.allProperties, timestamp: Date.now() };
+        saveToStorage('pr_properties_v2', payload.allProperties);
+      }
+    } else if (type === 'LEAD_SAVED' || type === 'LEAD_DELETED') {
+      if (payload?.allLeads) {
+        memoryCache.leads = { data: payload.allLeads, timestamp: Date.now() };
+        saveToStorage('pr_leads_v2', payload.allLeads);
+      }
+    } else if (type === 'NEWS_SAVED' || type === 'NEWS_DELETED') {
+      if (payload?.allNews) {
+        memoryCache.news = { data: payload.allNews, timestamp: Date.now() };
+        saveToStorage('pr_news_v2', payload.allNews);
+      }
+    } else if (type === 'ALL_DATA_RESET') {
+      DataService.resetAllLocalCache();
+    }
+
+    // Notify all UI subscribers
+    syncListeners.forEach((fn) => {
+      try {
+        fn(type, payload);
+      } catch (err) {
+        console.error('Error in sync listener:', err);
+      }
+    });
+  }
+
+  // Refresh data from server
+  static async refreshAllDataFromServer() {
+    try {
+      const [p, l, n] = await Promise.all([
+        DataService.getProperties(true),
+        DataService.getLeads(true),
+        DataService.getNews(true),
+      ]);
+      syncListeners.forEach((fn) => fn('DATA_SYNC_REFRESH', { properties: p, leads: l, news: n }));
+    } catch (e) {}
+  }
+
+  // Broadcast to other tabs locally
+  private static broadcastLocal(type: string, payload: any) {
+    if (broadcastChannel) {
+      try {
+        broadcastChannel.postMessage({ type, payload, timestamp: Date.now() });
+      } catch (e) {}
+    }
+  }
+
   // -----------------------------------------------------------------
   // 1. PROPERTIES
   // -----------------------------------------------------------------
   static async getProperties(forceRefresh = false): Promise<Property[]> {
-    // 1. Memory Cache
+    // 1. Check memory cache if not force refresh
     if (!forceRefresh && memoryCache.properties && Date.now() - memoryCache.properties.timestamp < CACHE_TTL_MS) {
       return memoryCache.properties.data;
     }
 
-    // 2. LocalStorage Cache
+    // 2. Fetch from Express Backend Server API
+    try {
+      const res = await fetch('/api/properties');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && Array.isArray(json.data) && json.data.length > 0) {
+          memoryCache.properties = { data: json.data, timestamp: Date.now() };
+          saveToStorage('pr_properties_v2', json.data);
+          if (json.version) currentServerVersion = json.version;
+          return json.data;
+        }
+      }
+    } catch (err) {
+      // Backend not reached, proceed to local storage
+    }
+
+    // 3. LocalStorage Cache
     const stored = readFromStorage<Property[]>('pr_properties_v2');
-    if (!forceRefresh && stored && Date.now() - stored.timestamp < CACHE_TTL_MS) {
+    if (!forceRefresh && stored && stored.data && stored.data.length > 0) {
       memoryCache.properties = stored;
       return stored.data;
     }
 
-    // Fallback data
+    // Fallback default
     let result: Property[] = stored?.data || initialProperties;
 
-    // 3. Sync from Supabase if configured
+    // 4. Sync from Supabase if configured
     if (isSupabaseConfigured()) {
       try {
         const supabase = getSupabaseClient();
@@ -84,7 +271,7 @@ export class DataService {
           }
         }
       } catch (err) {
-        console.warn('Supabase fetch properties failed, using local cache:', err);
+        console.warn('Supabase fetch properties fallback:', err);
       }
     }
 
@@ -106,11 +293,31 @@ export class DataService {
       updated = [property, ...current];
     }
 
-    // Update cache immediately
+    // Update cache immediately for instant local UI update
     memoryCache.properties = { data: updated, timestamp: Date.now() };
     saveToStorage('pr_properties_v2', updated);
+    this.broadcastLocal('PROPERTY_SAVED', { property, allProperties: updated });
 
-    // Sync to Supabase in background
+    // Send to Server Backend for Cross-Device Persistence & SSE Broadcast
+    try {
+      const res = await fetch('/api/properties', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(property),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data) {
+          updated = json.data;
+          memoryCache.properties = { data: updated, timestamp: Date.now() };
+          saveToStorage('pr_properties_v2', updated);
+        }
+      }
+    } catch (err) {
+      console.warn('Backend server save property warning:', err);
+    }
+
+    // Sync to Supabase in background if configured
     if (isSupabaseConfigured()) {
       try {
         const supabase = getSupabaseClient();
@@ -125,12 +332,31 @@ export class DataService {
     return updated;
   }
 
+  static async approveProperty(id: string): Promise<Property[]> {
+    const current = await this.getProperties();
+    const index = current.findIndex((p) => p.id === id);
+    if (index >= 0) {
+      const approved: Property = {
+        ...current[index],
+        status: 'ACTIVE',
+        isVerified: true,
+      };
+      return this.saveProperty(approved);
+    }
+    return current;
+  }
+
   static async deleteProperty(id: string): Promise<Property[]> {
     const current = await this.getProperties();
     const updated = current.filter((p) => p.id !== id);
 
     memoryCache.properties = { data: updated, timestamp: Date.now() };
     saveToStorage('pr_properties_v2', updated);
+    this.broadcastLocal('PROPERTY_DELETED', { id, allProperties: updated });
+
+    try {
+      await fetch(`/api/properties/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    } catch (e) {}
 
     if (isSupabaseConfigured()) {
       try {
@@ -153,6 +379,25 @@ export class DataService {
     if (!forceRefresh && memoryCache.news && Date.now() - memoryCache.news.timestamp < CACHE_TTL_MS) {
       return memoryCache.news.data;
     }
+
+    try {
+      const res = await fetch('/api/news');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && Array.isArray(json.data) && json.data.length > 0) {
+          let newsList: NewsItem[] = json.data;
+          newsList = newsList.map((item) => {
+            if (item.category === 'Policy Update' || item.category === 'Policy Updates') {
+              return { ...item, category: 'Latest Update' };
+            }
+            return item;
+          });
+          memoryCache.news = { data: newsList, timestamp: Date.now() };
+          saveToStorage('pr_news_v2', newsList);
+          return newsList;
+        }
+      }
+    } catch (e) {}
 
     const stored = readFromStorage<NewsItem[]>('pr_news_v2');
     if (!forceRefresh && stored && Date.now() - stored.timestamp < CACHE_TTL_MS) {
@@ -203,6 +448,15 @@ export class DataService {
 
     memoryCache.news = { data: updated, timestamp: Date.now() };
     saveToStorage('pr_news_v2', updated);
+    this.broadcastLocal('NEWS_SAVED', { newsItem: item, allNews: updated });
+
+    try {
+      await fetch('/api/news', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(item),
+      });
+    } catch (e) {}
 
     if (isSupabaseConfigured()) {
       try {
@@ -224,6 +478,11 @@ export class DataService {
 
     memoryCache.news = { data: updated, timestamp: Date.now() };
     saveToStorage('pr_news_v2', updated);
+    this.broadcastLocal('NEWS_DELETED', { id, allNews: updated });
+
+    try {
+      await fetch(`/api/news/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    } catch (e) {}
 
     if (isSupabaseConfigured()) {
       try {
@@ -265,7 +524,7 @@ export class DataService {
           }
         }
       } catch (err) {
-        console.warn('Supabase fetch pr services failed:', err);
+        console.warn('Supabase fetch PR services failed:', err);
       }
     }
 
@@ -296,7 +555,7 @@ export class DataService {
           await supabase.from('pr_services').upsert(service, { onConflict: 'id' });
         }
       } catch (err) {
-        console.warn('Supabase save pr service warning:', err);
+        console.warn('Supabase save PR service warning:', err);
       }
     }
 
@@ -317,7 +576,7 @@ export class DataService {
           await supabase.from('pr_services').delete().eq('id', id);
         }
       } catch (err) {
-        console.warn('Supabase delete pr service warning:', err);
+        console.warn('Supabase delete PR service warning:', err);
       }
     }
 
@@ -325,12 +584,24 @@ export class DataService {
   }
 
   // -----------------------------------------------------------------
-  // 4. LEADS
+  // 4. LEADS & INQUIRIES
   // -----------------------------------------------------------------
   static async getLeads(forceRefresh = false): Promise<Lead[]> {
     if (!forceRefresh && memoryCache.leads && Date.now() - memoryCache.leads.timestamp < CACHE_TTL_MS) {
       return memoryCache.leads.data;
     }
+
+    try {
+      const res = await fetch('/api/leads');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && Array.isArray(json.data)) {
+          memoryCache.leads = { data: json.data, timestamp: Date.now() };
+          saveToStorage('pr_leads_v2', json.data);
+          return json.data;
+        }
+      }
+    } catch (e) {}
 
     const stored = readFromStorage<Lead[]>('pr_leads_v2');
     if (!forceRefresh && stored && Date.now() - stored.timestamp < CACHE_TTL_MS) {
@@ -373,6 +644,15 @@ export class DataService {
 
     memoryCache.leads = { data: updated, timestamp: Date.now() };
     saveToStorage('pr_leads_v2', updated);
+    this.broadcastLocal('LEAD_SAVED', { lead, allLeads: updated });
+
+    try {
+      await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(lead),
+      });
+    } catch (e) {}
 
     if (isSupabaseConfigured()) {
       try {
@@ -382,6 +662,32 @@ export class DataService {
         }
       } catch (err) {
         console.warn('Supabase save lead warning:', err);
+      }
+    }
+
+    return updated;
+  }
+
+  static async deleteLead(id: string): Promise<Lead[]> {
+    const current = await this.getLeads();
+    const updated = current.filter((l) => l.id !== id);
+
+    memoryCache.leads = { data: updated, timestamp: Date.now() };
+    saveToStorage('pr_leads_v2', updated);
+    this.broadcastLocal('LEAD_DELETED', { id, allLeads: updated });
+
+    try {
+      await fetch(`/api/leads/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    } catch (e) {}
+
+    if (isSupabaseConfigured()) {
+      try {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+          await supabase.from('leads').delete().eq('id', id);
+        }
+      } catch (err) {
+        console.warn('Supabase delete lead warning:', err);
       }
     }
 
@@ -445,15 +751,34 @@ export class DataService {
           await supabase.from('construction_packages').upsert(pkg, { onConflict: 'id' });
         }
       } catch (err) {
-        console.warn('Supabase save construction pkg warning:', err);
+        console.warn('Supabase save package warning:', err);
       }
     }
 
     return updated;
   }
 
+  static async deleteConstructionPackage(id: string): Promise<ConstructionPackage[]> {
+    const current = await this.getConstructionPackages();
+    const updated = current.filter((p) => p.id !== id);
+
+    memoryCache.construction = { data: updated, timestamp: Date.now() };
+    saveToStorage('pr_construction_v2', updated);
+
+    if (isSupabaseConfigured()) {
+      try {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+          await supabase.from('construction_packages').delete().eq('id', id);
+        }
+      } catch (err) {}
+    }
+
+    return updated;
+  }
+
   // -----------------------------------------------------------------
-  // 6. SITE SETTINGS & PAGE DETAILS
+  // 6. SITE SETTINGS
   // -----------------------------------------------------------------
   static async getSiteSettings(forceRefresh = false): Promise<SiteSettings> {
     if (!forceRefresh && memoryCache.siteSettings && Date.now() - memoryCache.siteSettings.timestamp < CACHE_TTL_MS) {
@@ -506,47 +831,7 @@ export class DataService {
   }
 
   // -----------------------------------------------------------------
-  // ADMIN PASSCODE MANAGEMENT
-  // -----------------------------------------------------------------
-  static getAdminPasscode(): string {
-    try {
-      const custom = localStorage.getItem('admin_portal_passcode');
-      if (custom && custom.trim()) return custom.trim();
-      const settings = readFromStorage<SiteSettings>('pr_site_settings_v2');
-      if (settings?.data?.adminPasscode && settings.data.adminPasscode.trim()) {
-        return settings.data.adminPasscode.trim();
-      }
-    } catch (e) {
-      // Fallback
-    }
-    return 'admin123';
-  }
-
-  static async setAdminPasscode(newPasscode: string): Promise<string> {
-    const trimmed = newPasscode.trim();
-    localStorage.setItem('admin_portal_passcode', trimmed);
-    const settings = await this.getSiteSettings();
-    const updatedSettings: SiteSettings = {
-      ...settings,
-      adminPasscode: trimmed,
-    };
-    await this.saveSiteSettings(updatedSettings);
-    return trimmed;
-  }
-
-  static async resetAdminPasscode(): Promise<string> {
-    localStorage.removeItem('admin_portal_passcode');
-    const settings = await this.getSiteSettings();
-    const updatedSettings: SiteSettings = {
-      ...settings,
-      adminPasscode: 'admin123',
-    };
-    await this.saveSiteSettings(updatedSettings);
-    return 'admin123';
-  }
-
-  // -----------------------------------------------------------------
-  // 7. EXCLUSIVE PROJECTS
+  // 7. PROJECTS
   // -----------------------------------------------------------------
   static async getProjects(forceRefresh = false): Promise<Project[]> {
     if (!forceRefresh && memoryCache.projects && Date.now() - memoryCache.projects.timestamp < CACHE_TTL_MS) {
@@ -565,7 +850,7 @@ export class DataService {
       try {
         const supabase = getSupabaseClient();
         if (supabase) {
-          const { data, error } = await supabase.from('projects').select('*').order('createdAt', { ascending: false });
+          const { data, error } = await supabase.from('projects').select('*');
           if (!error && data && data.length > 0) {
             result = data as Project[];
           }
@@ -609,6 +894,43 @@ export class DataService {
     return updated;
   }
 
+  static async deleteProject(id: string): Promise<Project[]> {
+    const current = await this.getProjects();
+    const updated = current.filter((p) => p.id !== id);
+
+    memoryCache.projects = { data: updated, timestamp: Date.now() };
+    saveToStorage('pr_projects_v2', updated);
+
+    if (isSupabaseConfigured()) {
+      try {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+          await supabase.from('projects').delete().eq('id', id);
+        }
+      } catch (err) {}
+    }
+
+    return updated;
+  }
+
+  // -----------------------------------------------------------------
+  // 8. ADMIN PASSCODE MANAGEMENT
+  // -----------------------------------------------------------------
+  static getAdminPasscode(): string {
+    const custom = localStorage.getItem('pr_admin_passcode_custom');
+    return custom || 'admin123';
+  }
+
+  static setAdminPasscode(newPass: string): void {
+    if (newPass && newPass.trim().length >= 4) {
+      localStorage.setItem('pr_admin_passcode_custom', newPass.trim());
+    }
+  }
+
+  static resetAdminPasscode(): void {
+    localStorage.removeItem('pr_admin_passcode_custom');
+  }
+
   // Reset local cache back to initial defaults
   static resetAllLocalCache() {
     localStorage.removeItem('pr_properties_v2');
@@ -626,6 +948,10 @@ export class DataService {
     delete memoryCache.construction;
     delete memoryCache.siteSettings;
     delete memoryCache.projects;
+
+    try {
+      fetch('/api/reset-defaults', { method: 'POST' });
+    } catch (e) {}
   }
 
   // Get Supabase SQL Schema for setup

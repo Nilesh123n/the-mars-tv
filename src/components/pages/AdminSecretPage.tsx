@@ -1534,7 +1534,7 @@ export default function AdminSecretPage({
                     </p>
                     <div className="flex items-center justify-center gap-3">
                       <button
-                        onClick={() => setApprovalLocationSelection({ region: 'India', stateId: null, cityId: null })}
+                        onClick={() => setApprovalLocationSelection({ region: 'ALL', stateId: null, cityId: null })}
                         className="text-xs text-[#D61F26] font-bold hover:underline cursor-pointer"
                       >
                         Reset Location Filter
@@ -1696,7 +1696,7 @@ export default function AdminSecretPage({
                                   <p className="flex items-center gap-1">
                                     <span className="text-gray-500">Phone:</span>{' '}
                                     <strong className="text-gray-900">{property.contactPhone || 'N/A'}</strong>
-                                    <span className="bg-emerald-100 text-emerald-800 text-[9px] font-bold px-1 rounded">OTP Verified</span>
+                                    <span className="bg-emerald-100 text-emerald-800 text-[9px] font-bold px-1.5 py-0.5 rounded">Direct Contact</span>
                                   </p>
                                   {property.contactEmail && (
                                     <p>
