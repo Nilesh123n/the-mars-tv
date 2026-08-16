@@ -363,42 +363,46 @@ export default function AdminSecretPage({
   };
 
   const handleApproveProperty = async (id: string, title: string) => {
-    const prop = properties.find((p) => p.id === id);
-    if (!prop) return;
-    const approvedProp: Property = {
-      ...prop,
-      status: 'ACTIVE',
-      isVerified: true,
-    };
-    const updated = await DataService.saveProperty(approvedProp);
-    setProperties(updated);
-    showToast(`Property "${title}" approved and published LIVE!`);
+    try {
+      const updated = await DataService.approveProperty(id);
+      setProperties(updated);
+      showToast(`Property "${title}" approved and published LIVE!`);
+    } catch (err: any) {
+      console.error('Error approving property:', err);
+      showToast(`Failed to approve: ${err?.message || 'Check database connection'}`);
+    }
   };
 
   const handleRejectProperty = async (id: string, title: string) => {
-    const confirmDelete = window.confirm(
+    const confirmReject = window.confirm(
       `Are you sure you want to reject and remove property "${title}"? This action cannot be undone.`
     );
-    if (!confirmDelete) return;
-    const updated = await DataService.deleteProperty(id);
-    setProperties(updated);
-    showToast(`Property "${title}" rejected and removed.`);
+    if (!confirmReject) return;
+    try {
+      const updated = await DataService.deleteProperty(id);
+      setProperties(updated);
+      showToast(`Property "${title}" rejected and removed.`);
+    } catch (err: any) {
+      console.error('Error rejecting property:', err);
+      showToast(`Failed to reject: ${err?.message || 'Check database connection'}`);
+    }
   };
 
   const handleApproveAllPending = async () => {
     const pendingList = properties.filter((p) => p.status === 'PENDING_APPROVAL');
     if (pendingList.length === 0) return;
     
-    let latest = properties;
-    for (const prop of pendingList) {
-      latest = await DataService.saveProperty({
-        ...prop,
-        status: 'ACTIVE',
-        isVerified: true,
-      });
+    try {
+      let latest = properties;
+      for (const prop of pendingList) {
+        latest = await DataService.approveProperty(prop.id);
+      }
+      setProperties(latest);
+      showToast(`All ${pendingList.length} pending properties approved & published!`);
+    } catch (err: any) {
+      console.error('Error approving all pending:', err);
+      showToast(`Batch approval finished with errors: ${err?.message}`);
     }
-    setProperties(latest);
-    showToast(`All ${pendingList.length} pending properties approved & published!`);
   };
 
   const openEditProperty = (prop: Property) => {

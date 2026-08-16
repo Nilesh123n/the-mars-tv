@@ -1,5 +1,6 @@
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
 import { Property, NewsItem, PRServiceItem, Lead, ConstructionPackage, SiteSettings, Project } from '../types';
+import { fromSupabaseRow, toSupabaseRow } from './propertyMapper';
 import {
   initialProperties,
   initialNews,
@@ -70,6 +71,7 @@ const syncListeners: Set<SyncListener> = new Set();
 // Track last known server version for polling comparison
 let currentServerVersion = 0;
 let isRealtimeInitialized = false;
+let supabaseRealtimeChannel: any = null;
 
 export class DataService {
   // -----------------------------------------------------------------
@@ -88,7 +90,46 @@ export class DataService {
 
     isRealtimeInitialized = true;
 
-    // 1. BroadcastChannel (Instant 0ms sync across tabs on same device)
+    // 1. Supabase Realtime Subscription (Highest Priority for Multi-Device Live Sync)
+    if (isSupabaseConfigured()) {
+      try {
+        const supabase = getSupabaseClient();
+        if (supabase && !supabaseRealtimeChannel) {
+          console.log('[DataService] Subscribing to Supabase Realtime for "properties" table...');
+          supabaseRealtimeChannel = supabase
+            .channel('public:properties:realtime')
+            .on(
+              'postgres_changes',
+              { event: '*', schema: 'public', table: 'properties' },
+              async (payload) => {
+                console.log('[DataService] ⚡ Supabase Realtime event received:', payload.eventType, payload);
+                if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+                  if (payload.new) {
+                    try {
+                      const property = fromSupabaseRow(payload.new);
+                      DataService.handleIncomingPropertyRealtime(property, payload.eventType);
+                    } catch (mapErr) {
+                      console.error('[DataService] Error mapping realtime property:', mapErr);
+                    }
+                  }
+                } else if (payload.eventType === 'DELETE') {
+                  const deletedId = payload.old?.id;
+                  if (deletedId) {
+                    DataService.handleIncomingPropertyDelete(deletedId);
+                  }
+                }
+              }
+            )
+            .subscribe((status) => {
+              console.log('[DataService] Supabase Realtime subscription status:', status);
+            });
+        }
+      } catch (err) {
+        console.warn('[DataService] Failed to initialize Supabase Realtime channel:', err);
+      }
+    }
+
+    // 2. BroadcastChannel (Instant 0ms sync across tabs on same device)
     if (broadcastChannel) {
       broadcastChannel.onmessage = (event) => {
         const { type, payload } = event.data || {};
@@ -98,7 +139,7 @@ export class DataService {
       };
     }
 
-    // 2. Storage event listener (Cross-tab backup)
+    // 3. Storage event listener (Cross-tab backup)
     window.addEventListener('storage', (e) => {
       if (e.key === 'pr_properties_v2' && e.newValue) {
         try {
@@ -111,7 +152,7 @@ export class DataService {
       }
     });
 
-    // 3. Server-Sent Events (SSE) for Real-Time Cross-Device Sync (Mobile <-> Desktop <-> Tablet)
+    // 4. Server-Sent Events (SSE) for Real-Time Cross-Device Sync (Mobile <-> Desktop <-> Tablet)
     let eventSource: EventSource | null = null;
 
     function connectSSE() {
@@ -141,20 +182,20 @@ export class DataService {
           setTimeout(connectSSE, 3000);
         };
       } catch (err) {
-        console.warn('SSE connection failed, falling back to polling:', err);
+        console.warn('SSE connection fallback:', err);
       }
     }
 
     connectSSE();
 
-    // 4. Window focus & visibility listener (instantly sync when user opens tab/app)
+    // 5. Window focus & visibility listener (instantly sync when user opens tab/app)
     const handleFocusOrVisible = () => {
       DataService.checkForServerUpdates();
     };
     window.addEventListener('visibilitychange', handleFocusOrVisible);
     window.addEventListener('focus', handleFocusOrVisible);
 
-    // 5. Background Fallback Poller (Every 3 seconds - checks lightweight version number)
+    // 6. Background Fallback Poller (Every 3 seconds - checks lightweight version number)
     const pollerTimer = setInterval(() => {
       DataService.checkForServerUpdates();
     }, 3000);
@@ -162,15 +203,66 @@ export class DataService {
     return () => {
       if (onUpdateCallback) syncListeners.delete(onUpdateCallback);
       if (eventSource) eventSource.close();
+      if (supabaseRealtimeChannel && typeof supabaseRealtimeChannel.unsubscribe === 'function') {
+        supabaseRealtimeChannel.unsubscribe();
+        supabaseRealtimeChannel = null;
+      }
       window.removeEventListener('visibilitychange', handleFocusOrVisible);
       window.removeEventListener('focus', handleFocusOrVisible);
       clearInterval(pollerTimer);
     };
   }
 
+  // Handle incoming Supabase realtime property changes
+  private static handleIncomingPropertyRealtime(property: Property, eventType: 'INSERT' | 'UPDATE') {
+    const currentList = memoryCache.properties?.data || [];
+    const index = currentList.findIndex((p) => p.id === property.id);
+    let updatedList: Property[];
+
+    if (index >= 0) {
+      updatedList = [...currentList];
+      updatedList[index] = property;
+    } else {
+      updatedList = [property, ...currentList];
+    }
+
+    memoryCache.properties = { data: updatedList, timestamp: Date.now() };
+    saveToStorage('pr_properties_v2', updatedList);
+
+    const eventName = property.status === 'ACTIVE' && eventType === 'UPDATE' ? 'PROPERTY_APPROVED' : 'PROPERTY_SAVED';
+    syncListeners.forEach((fn) => {
+      try {
+        fn(eventName, { property, allProperties: updatedList });
+      } catch (err) {
+        console.error('Error in sync listener:', err);
+      }
+    });
+  }
+
+  // Handle incoming Supabase realtime property deletion
+  private static handleIncomingPropertyDelete(id: string) {
+    const currentList = memoryCache.properties?.data || [];
+    const updatedList = currentList.filter((p) => p.id !== id);
+
+    memoryCache.properties = { data: updatedList, timestamp: Date.now() };
+    saveToStorage('pr_properties_v2', updatedList);
+
+    syncListeners.forEach((fn) => {
+      try {
+        fn('PROPERTY_DELETED', { id, allProperties: updatedList });
+      } catch (err) {
+        console.error('Error in sync listener:', err);
+      }
+    });
+  }
+
   // Check version and refresh if stale
   static async checkForServerUpdates() {
     try {
+      if (isSupabaseConfigured()) {
+        // If Supabase is active, we rely on Supabase Realtime
+        return;
+      }
       const res = await fetch('/api/sync/version');
       if (res.ok) {
         const data = await res.json();
@@ -271,15 +363,58 @@ export class DataService {
   }
 
   // -----------------------------------------------------------------
-  // 1. PROPERTIES
+  // 1. PROPERTIES (SUPABASE PRIMARY SOURCE OF TRUTH)
   // -----------------------------------------------------------------
   static async getProperties(forceRefresh = false): Promise<Property[]> {
-    // 1. Check memory cache if not force refresh
+    // 1. SUPABASE AS PRIMARY SOURCE OF TRUTH (When Configured)
+    if (isSupabaseConfigured()) {
+      try {
+        const supabase = getSupabaseClient();
+        if (!supabase) {
+          throw new Error('Supabase client failed to initialize');
+        }
+
+        console.log('[PropertyService] Fetching properties from Supabase source of truth...');
+        
+        let { data, error } = await supabase
+          .from('properties')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        // Fallback query if created_at column is not present or uses camelCase
+        if (error && (error.code === '42703' || error.message?.toLowerCase().includes('created_at'))) {
+          console.warn('[PropertyService] Retrying fetch without created_at order...', error.message);
+          const fallbackRes = await supabase.from('properties').select('*');
+          data = fallbackRes.data;
+          error = fallbackRes.error;
+        }
+
+        if (error) {
+          console.error('[PropertyService] Supabase getProperties error:', error);
+          throw new Error(`[PropertyService] Supabase query failed: ${error.message || JSON.stringify(error)}`);
+        }
+
+        // Map rows to Property objects
+        const propertiesList: Property[] = (data || []).map(fromSupabaseRow);
+        console.log(`[PropertyService] Successfully loaded ${propertiesList.length} properties from Supabase.`);
+
+        // Cache result for quick access
+        memoryCache.properties = { data: propertiesList, timestamp: Date.now() };
+        saveToStorage('pr_properties_v2', propertiesList);
+
+        return propertiesList;
+      } catch (err) {
+        console.error('[PropertyService] Supabase fetch failed:', err);
+        // Do not swallow Supabase errors when it is configured
+        throw err;
+      }
+    }
+
+    // 2. FALLBACK ENVIRONMENT (Only when Supabase is NOT configured)
     if (!forceRefresh && memoryCache.properties && Date.now() - memoryCache.properties.timestamp < CACHE_TTL_MS) {
       return memoryCache.properties.data;
     }
 
-    // 2. Fetch from Express Backend Server API
     try {
       const res = await fetch('/api/properties');
       if (res.ok) {
@@ -291,42 +426,74 @@ export class DataService {
           return json.data;
         }
       }
-    } catch (err) {
-      // Backend not reached, proceed to local storage
-    }
+    } catch (err) {}
 
-    // 3. LocalStorage Cache
     const stored = readFromStorage<Property[]>('pr_properties_v2');
     if (!forceRefresh && stored && stored.data && stored.data.length > 0) {
       memoryCache.properties = stored;
       return stored.data;
     }
 
-    // Fallback default
-    let result: Property[] = stored?.data || initialProperties;
-
-    // 4. Sync from Supabase if configured
-    if (isSupabaseConfigured()) {
-      try {
-        const supabase = getSupabaseClient();
-        if (supabase) {
-          const { data, error } = await supabase.from('properties').select('*').order('createdAt', { ascending: false });
-          if (!error && data && data.length > 0) {
-            result = data as Property[];
-          }
-        }
-      } catch (err) {
-        console.warn('Supabase fetch properties fallback:', err);
-      }
-    }
-
-    // Update memory & local storage
-    memoryCache.properties = { data: result, timestamp: Date.now() };
-    saveToStorage('pr_properties_v2', result);
-    return result;
+    const fallback = stored?.data || initialProperties;
+    memoryCache.properties = { data: fallback, timestamp: Date.now() };
+    saveToStorage('pr_properties_v2', fallback);
+    return fallback;
   }
 
   static async saveProperty(property: Property): Promise<Property[]> {
+    console.log('[PropertyService] Initiating property save:', {
+      id: property.id,
+      title: property.title,
+      status: property.status,
+      userRole: property.userRole,
+    });
+
+    // 1. SUPABASE AS PRIMARY PERSISTENCE (When configured)
+    if (isSupabaseConfigured()) {
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        throw new Error('Supabase client is not available. Please verify credentials in Admin Panel.');
+      }
+
+      const rowPayload = toSupabaseRow(property);
+      console.log('[PropertyService] Upserting row to Supabase properties table...', rowPayload.id);
+
+      const { data, error } = await supabase
+        .from('properties')
+        .upsert(rowPayload, { onConflict: 'id' })
+        .select();
+
+      if (error) {
+        console.error('[PropertyService] Supabase insert failed:', error);
+        throw new Error(`[PropertyService] Supabase insert failed: ${error.message || JSON.stringify(error)}`);
+      }
+
+      console.log('[PropertyService] Supabase insert succeeded:', data);
+
+      // Async sync to local Express backend for backup / multi-protocol clients
+      fetch('/api/properties', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(property),
+      }).catch(() => {});
+
+      // Fetch fresh authoritative list from Supabase
+      const updatedList = await this.getProperties(true);
+
+      // Broadcast local event
+      this.broadcastLocal('PROPERTY_SAVED', { property, allProperties: updatedList });
+
+      // Notify UI listeners
+      syncListeners.forEach((fn) => {
+        try {
+          fn('PROPERTY_SAVED', { property, allProperties: updatedList });
+        } catch (e) {}
+      });
+
+      return updatedList;
+    }
+
+    // 2. STANDALONE / LOCAL FALLBACK (When Supabase is not configured)
     const current = await this.getProperties();
     const index = current.findIndex((p) => p.id === property.id);
     let updated: Property[];
@@ -338,12 +505,10 @@ export class DataService {
       updated = [property, ...current];
     }
 
-    // Update cache immediately for instant local UI update
     memoryCache.properties = { data: updated, timestamp: Date.now() };
     saveToStorage('pr_properties_v2', updated);
     this.broadcastLocal('PROPERTY_SAVED', { property, allProperties: updated });
 
-    // Send to Server Backend for Cross-Device Persistence & SSE Broadcast
     try {
       const res = await fetch('/api/properties', {
         method: 'POST',
@@ -362,22 +527,48 @@ export class DataService {
       console.warn('Backend server save property warning:', err);
     }
 
-    // Sync to Supabase in background if configured
-    if (isSupabaseConfigured()) {
-      try {
-        const supabase = getSupabaseClient();
-        if (supabase) {
-          await supabase.from('properties').upsert(property, { onConflict: 'id' });
-        }
-      } catch (err) {
-        console.warn('Supabase upsert property warning:', err);
-      }
-    }
-
     return updated;
   }
 
   static async approveProperty(id: string): Promise<Property[]> {
+    console.log('[PropertyService] Approving property ID:', id);
+
+    if (isSupabaseConfigured()) {
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        throw new Error('Supabase client not available');
+      }
+
+      const { data, error } = await supabase
+        .from('properties')
+        .update({
+          status: 'ACTIVE',
+          is_verified: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .select();
+
+      if (error) {
+        console.error('[PropertyService] Supabase approve property error:', error);
+        throw new Error(`Failed to approve property in Supabase: ${error.message}`);
+      }
+
+      console.log('[PropertyService] Supabase property approved:', data);
+      const updatedList = await this.getProperties(true);
+
+      const approvedProp = updatedList.find((p) => p.id === id);
+      this.broadcastLocal('PROPERTY_APPROVED', { property: approvedProp, allProperties: updatedList });
+
+      syncListeners.forEach((fn) => {
+        try {
+          fn('PROPERTY_APPROVED', { property: approvedProp, allProperties: updatedList });
+        } catch (e) {}
+      });
+
+      return updatedList;
+    }
+
     const current = await this.getProperties();
     const index = current.findIndex((p) => p.id === id);
     if (index >= 0) {
@@ -391,28 +582,87 @@ export class DataService {
     return current;
   }
 
-  static async deleteProperty(id: string): Promise<Property[]> {
+  static async rejectProperty(id: string): Promise<Property[]> {
+    console.log('[PropertyService] Rejecting property ID:', id);
+
+    if (isSupabaseConfigured()) {
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        throw new Error('Supabase client not available');
+      }
+
+      // Mark as REJECTED in Supabase
+      const { data, error } = await supabase
+        .from('properties')
+        .update({
+          status: 'REJECTED',
+          is_verified: false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .select();
+
+      if (error) {
+        console.error('[PropertyService] Supabase reject property error:', error);
+        throw new Error(`Failed to reject property in Supabase: ${error.message}`);
+      }
+
+      const updatedList = await this.getProperties(true);
+      const rejectedProp = updatedList.find((p) => p.id === id);
+      this.broadcastLocal('PROPERTY_SAVED', { property: rejectedProp, allProperties: updatedList });
+
+      syncListeners.forEach((fn) => {
+        try {
+          fn('PROPERTY_SAVED', { property: rejectedProp, allProperties: updatedList });
+        } catch (e) {}
+      });
+
+      return updatedList;
+    }
+
     const current = await this.getProperties();
+    const index = current.findIndex((p) => p.id === id);
+    if (index >= 0) {
+      const rejected: Property = {
+        ...current[index],
+        status: 'REJECTED',
+        isVerified: false,
+      };
+      return this.saveProperty(rejected);
+    }
+    return current;
+  }
+
+  static async deleteProperty(id: string): Promise<Property[]> {
+    console.log('[PropertyService] Deleting property ID:', id);
+
+    if (isSupabaseConfigured()) {
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        const { error } = await supabase.from('properties').delete().eq('id', id);
+        if (error) {
+          console.error('[PropertyService] Supabase delete property warning:', error);
+          throw new Error(`Failed to delete property in Supabase: ${error.message}`);
+        }
+      }
+    }
+
+    try {
+      await fetch(`/api/properties/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    } catch (e) {}
+
+    const current = await this.getProperties(isSupabaseConfigured());
     const updated = current.filter((p) => p.id !== id);
 
     memoryCache.properties = { data: updated, timestamp: Date.now() };
     saveToStorage('pr_properties_v2', updated);
     this.broadcastLocal('PROPERTY_DELETED', { id, allProperties: updated });
 
-    try {
-      await fetch(`/api/properties/${encodeURIComponent(id)}`, { method: 'DELETE' });
-    } catch (e) {}
-
-    if (isSupabaseConfigured()) {
+    syncListeners.forEach((fn) => {
       try {
-        const supabase = getSupabaseClient();
-        if (supabase) {
-          await supabase.from('properties').delete().eq('id', id);
-        }
-      } catch (err) {
-        console.warn('Supabase delete property warning:', err);
-      }
-    }
+        fn('PROPERTY_DELETED', { id, allProperties: updated });
+      } catch (e) {}
+    });
 
     return updated;
   }
@@ -599,23 +849,19 @@ export class DataService {
       updated = [...current];
       updated[index] = service;
     } else {
-      updated = [...current, service];
+      updated = [service, ...current];
     }
 
     memoryCache.prServices = { data: updated, timestamp: Date.now() };
     saveToStorage('pr_services_v2', updated);
-    this.broadcastLocal('PR_SERVICE_SAVED', { service, allPRServices: updated });
+    this.broadcastLocal('PR_SERVICE_SAVED', { prService: service, allPRServices: updated });
 
     try {
-      const res = await fetch('/api/pr-services', {
+      await fetch('/api/pr-services', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(service),
       });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.data) updated = json.data;
-      }
     } catch (e) {}
 
     if (isSupabaseConfigured()) {
@@ -659,7 +905,7 @@ export class DataService {
   }
 
   // -----------------------------------------------------------------
-  // 4. LEADS & INQUIRIES
+  // 4. LEADS
   // -----------------------------------------------------------------
   static async getLeads(forceRefresh = false): Promise<Lead[]> {
     if (!forceRefresh && memoryCache.leads && Date.now() - memoryCache.leads.timestamp < CACHE_TTL_MS) {
@@ -670,7 +916,7 @@ export class DataService {
       const res = await fetch('/api/leads');
       if (res.ok) {
         const json = await res.json();
-        if (json.data && Array.isArray(json.data)) {
+        if (json.data && Array.isArray(json.data) && json.data.length > 0) {
           memoryCache.leads = { data: json.data, timestamp: Date.now() };
           saveToStorage('pr_leads_v2', json.data);
           return json.data;
@@ -818,30 +1064,26 @@ export class DataService {
 
   static async saveConstructionPackage(pkg: ConstructionPackage): Promise<ConstructionPackage[]> {
     const current = await this.getConstructionPackages();
-    const index = current.findIndex((p) => p.id === pkg.id);
+    const index = current.findIndex((c) => c.id === pkg.id);
     let updated: ConstructionPackage[];
 
     if (index >= 0) {
       updated = [...current];
       updated[index] = pkg;
     } else {
-      updated = [...current, pkg];
+      updated = [pkg, ...current];
     }
 
     memoryCache.construction = { data: updated, timestamp: Date.now() };
     saveToStorage('pr_construction_v2', updated);
-    this.broadcastLocal('CONSTRUCTION_SAVED', { pkg, allConstruction: updated });
+    this.broadcastLocal('CONSTRUCTION_SAVED', { package: pkg, allConstruction: updated });
 
     try {
-      const res = await fetch('/api/construction', {
+      await fetch('/api/construction', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(pkg),
       });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.data) updated = json.data;
-      }
     } catch (e) {}
 
     if (isSupabaseConfigured()) {
@@ -851,7 +1093,7 @@ export class DataService {
           await supabase.from('construction_packages').upsert(pkg, { onConflict: 'id' });
         }
       } catch (err) {
-        console.warn('Supabase save package warning:', err);
+        console.warn('Supabase save construction warning:', err);
       }
     }
 
@@ -860,7 +1102,7 @@ export class DataService {
 
   static async deleteConstructionPackage(id: string): Promise<ConstructionPackage[]> {
     const current = await this.getConstructionPackages();
-    const updated = current.filter((p) => p.id !== id);
+    const updated = current.filter((c) => c.id !== id);
 
     memoryCache.construction = { data: updated, timestamp: Date.now() };
     saveToStorage('pr_construction_v2', updated);
@@ -876,7 +1118,9 @@ export class DataService {
         if (supabase) {
           await supabase.from('construction_packages').delete().eq('id', id);
         }
-      } catch (err) {}
+      } catch (err) {
+        console.warn('Supabase delete construction warning:', err);
+      }
     }
 
     return updated;
@@ -914,7 +1158,7 @@ export class DataService {
       try {
         const supabase = getSupabaseClient();
         if (supabase) {
-          const { data, error } = await supabase.from('site_settings').select('*').single();
+          const { data, error } = await supabase.from('site_settings').select('*').limit(1).single();
           if (!error && data) {
             result = data as SiteSettings;
           }
@@ -957,7 +1201,7 @@ export class DataService {
   }
 
   // -----------------------------------------------------------------
-  // 7. PROJECTS
+  // 7. EXCLUSIVE PROJECTS
   // -----------------------------------------------------------------
   static async getProjects(forceRefresh = false): Promise<Project[]> {
     if (!forceRefresh && memoryCache.projects && Date.now() - memoryCache.projects.timestamp < CACHE_TTL_MS) {
@@ -1020,15 +1264,11 @@ export class DataService {
     this.broadcastLocal('PROJECT_SAVED', { project, allProjects: updated });
 
     try {
-      const res = await fetch('/api/projects', {
+      await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(project),
       });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.data) updated = json.data;
-      }
     } catch (e) {}
 
     if (isSupabaseConfigured()) {
@@ -1112,38 +1352,82 @@ export class DataService {
 
   // Get Supabase SQL Schema for setup
   static getSupabaseSQLSchema(): string {
-    return `-- ============================================================
--- SUPABASE DATABASE SCHEMA FOR THE MARS TV ADMIN PANEL
--- Copy and run this SQL script in your Supabase SQL Editor.
--- ============================================================
+    return `-- =========================================================================
+-- THE MARS TV - SUPABASE PROPERTIES & ADMIN SCHEMAS (FULL SYNC)
+-- =========================================================================
 
 -- 1. PROPERTIES TABLE
 CREATE TABLE IF NOT EXISTS public.properties (
-  id TEXT PRIMARY KEY,
-  title TEXT NOT NULL,
-  slug TEXT,
-  description TEXT,
-  price NUMERIC,
-  "priceLabel" TEXT,
-  location TEXT,
-  city TEXT,
-  area NUMERIC,
-  "areaUnit" TEXT,
-  bedrooms INT,
-  bathrooms INT,
-  parking INT,
-  "propertyType" TEXT,
-  "listingType" TEXT,
-  status TEXT,
-  "isSponsored" BOOLEAN DEFAULT false,
-  "isFeatured" BOOLEAN DEFAULT false,
-  "isVerified" BOOLEAN DEFAULT true,
-  "isReraReg" BOOLEAN DEFAULT true,
-  "reraNumber" TEXT,
-  images JSONB DEFAULT '[]'::jsonb,
-  amenities JSONB DEFAULT '[]'::jsonb,
-  "createdAt" TIMESTAMPTZ DEFAULT NOW()
+    id TEXT PRIMARY KEY,
+    submission_id TEXT,
+    title TEXT NOT NULL,
+    slug TEXT,
+    description TEXT,
+    price NUMERIC NOT NULL DEFAULT 0,
+    price_label TEXT,
+    location TEXT,
+    city TEXT DEFAULT 'Indore',
+    locality TEXT,
+    address TEXT,
+    pincode TEXT,
+    coordinates TEXT,
+    lat DOUBLE PRECISION,
+    lng DOUBLE PRECISION,
+    area NUMERIC DEFAULT 0,
+    area_unit TEXT DEFAULT 'sq.ft',
+    configuration TEXT,
+    bedrooms INTEGER DEFAULT 1,
+    bathrooms INTEGER DEFAULT 1,
+    parking INTEGER DEFAULT 0,
+    price_per_sq_ft NUMERIC,
+    maintenance_charges NUMERIC,
+    possession_status TEXT DEFAULT 'READY_TO_MOVE',
+    possession_date TEXT,
+    property_type TEXT DEFAULT 'APARTMENT',
+    sub_category TEXT,
+    listing_type TEXT DEFAULT 'BUY',
+    status TEXT NOT NULL DEFAULT 'PENDING_APPROVAL',
+    is_sponsored BOOLEAN DEFAULT FALSE,
+    is_featured BOOLEAN DEFAULT FALSE,
+    is_verified BOOLEAN DEFAULT FALSE,
+    is_rera_reg BOOLEAN DEFAULT FALSE,
+    rera_number TEXT,
+    approval_authority TEXT,
+    ownership_proof_doc TEXT,
+    user_role TEXT DEFAULT 'DEVELOPER',
+    contact_name TEXT,
+    contact_phone TEXT,
+    contact_email TEXT,
+    agency_name TEXT,
+    is_phone_verified BOOLEAN DEFAULT FALSE,
+    images JSONB DEFAULT '[]'::jsonb,
+    amenities JSONB DEFAULT '[]'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Ensure all columns exist on existing table
+ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS submission_id TEXT;
+ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS sub_category TEXT;
+ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS locality TEXT;
+ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS address TEXT;
+ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS pincode TEXT;
+ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS coordinates TEXT;
+ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS lat DOUBLE PRECISION;
+ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS lng DOUBLE PRECISION;
+ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS price_per_sq_ft NUMERIC;
+ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS maintenance_charges NUMERIC;
+ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS possession_status TEXT DEFAULT 'READY_TO_MOVE';
+ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS possession_date TEXT;
+ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS approval_authority TEXT;
+ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS ownership_proof_doc TEXT;
+ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS user_role TEXT DEFAULT 'DEVELOPER';
+ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS contact_name TEXT;
+ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS contact_phone TEXT;
+ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS contact_email TEXT;
+ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS agency_name TEXT;
+ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS is_phone_verified BOOLEAN DEFAULT FALSE;
+ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 
 -- 2. NEWS ITEMS TABLE
 CREATE TABLE IF NOT EXISTS public.news_items (
@@ -1216,7 +1500,7 @@ CREATE TABLE IF NOT EXISTS public.site_settings (
   "activePromotionalBanner" TEXT
 );
 
--- Enable Row Level Security (RLS) & Allow Read/Write
+-- 7. ROW LEVEL SECURITY (RLS) POLICIES
 ALTER TABLE public.properties ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.news_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pr_services ENABLE ROW LEVEL SECURITY;
@@ -1224,24 +1508,52 @@ ALTER TABLE public.leads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.construction_packages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
 
--- Create Public Access Policies
+DROP POLICY IF EXISTS "Public Read Properties" ON public.properties;
 CREATE POLICY "Public Read Properties" ON public.properties FOR SELECT USING (true);
-CREATE POLICY "Public All Properties" ON public.properties FOR ALL USING (true);
+DROP POLICY IF EXISTS "Public Write Properties" ON public.properties;
+CREATE POLICY "Public Write Properties" ON public.properties FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Public Read News" ON public.news_items;
 CREATE POLICY "Public Read News" ON public.news_items FOR SELECT USING (true);
-CREATE POLICY "Public All News" ON public.news_items FOR ALL USING (true);
+DROP POLICY IF EXISTS "Public Write News" ON public.news_items;
+CREATE POLICY "Public Write News" ON public.news_items FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Public Read PR Services" ON public.pr_services;
 CREATE POLICY "Public Read PR Services" ON public.pr_services FOR SELECT USING (true);
-CREATE POLICY "Public All PR Services" ON public.pr_services FOR ALL USING (true);
+DROP POLICY IF EXISTS "Public Write PR Services" ON public.pr_services;
+CREATE POLICY "Public Write PR Services" ON public.pr_services FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Public Read Leads" ON public.leads;
 CREATE POLICY "Public Read Leads" ON public.leads FOR SELECT USING (true);
-CREATE POLICY "Public All Leads" ON public.leads FOR ALL USING (true);
+DROP POLICY IF EXISTS "Public Write Leads" ON public.leads;
+CREATE POLICY "Public Write Leads" ON public.leads FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Public Read Construction" ON public.construction_packages;
 CREATE POLICY "Public Read Construction" ON public.construction_packages FOR SELECT USING (true);
-CREATE POLICY "Public All Construction" ON public.construction_packages FOR ALL USING (true);
+DROP POLICY IF EXISTS "Public Write Construction" ON public.construction_packages;
+CREATE POLICY "Public Write Construction" ON public.construction_packages FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Public Read Site Settings" ON public.site_settings;
 CREATE POLICY "Public Read Site Settings" ON public.site_settings FOR SELECT USING (true);
-CREATE POLICY "Public All Site Settings" ON public.site_settings FOR ALL USING (true);
+DROP POLICY IF EXISTS "Public Write Site Settings" ON public.site_settings;
+CREATE POLICY "Public Write Site Settings" ON public.site_settings FOR ALL USING (true);
+
+-- 8. SUPABASE REALTIME REPLICATION
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' 
+    AND schemaname = 'public' 
+    AND tablename = 'properties'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.properties;
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_properties_status ON public.properties (status);
+CREATE INDEX IF NOT EXISTS idx_properties_city ON public.properties (city);
+CREATE INDEX IF NOT EXISTS idx_properties_created_at ON public.properties (created_at DESC);
 `;
   }
 }

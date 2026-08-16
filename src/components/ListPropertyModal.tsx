@@ -22,7 +22,7 @@ import { Property, PropertyType, ListingType, PropertyStatus, UserRole } from '.
 
 interface ListPropertyModalProps {
   onClose: () => void;
-  onAddProperty: (property: Partial<Property>) => void;
+  onAddProperty: (property: Partial<Property>) => Promise<any> | void;
   onNavigateToAdmin?: () => void;
 }
 
@@ -118,6 +118,7 @@ export default function ListPropertyModal({
   // Submission State
   const [submittedSubmissionId, setSubmittedSubmissionId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
 
   // Auto calculate price per sq ft
   const handlePriceChange = (val: number | '') => {
@@ -241,8 +242,10 @@ export default function ListPropertyModal({
   };
 
   // Form Submit
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    setSubmissionError(null);
+
     if (!title.trim()) {
       alert('Please enter a descriptive Property Title.');
       return;
@@ -259,8 +262,8 @@ export default function ListPropertyModal({
     const priceValue = typeof price === 'number' ? price : 10000000;
     const priceLabel = getFormattedPriceLabel(priceValue);
 
-    const newProp: Partial<Property> = {
-      id: `prop-${Date.now()}`,
+    const newProp: Property = {
+      id: `prop-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       submissionId: submissionRefId,
       title: title.trim(),
       slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
@@ -288,7 +291,7 @@ export default function ListPropertyModal({
       propertyType,
       subCategory,
       listingType,
-      status: 'PENDING_APPROVAL' as PropertyStatus, // Directly routed into Admin Portal for review
+      status: 'PENDING_APPROVAL', // Strict initial status for review in Admin Panel
       isSponsored: false,
       isFeatured: false,
       isVerified: false,
@@ -316,11 +319,17 @@ export default function ListPropertyModal({
       createdAt: new Date().toISOString(),
     };
 
-    setTimeout(() => {
-      onAddProperty(newProp);
+    try {
+      await onAddProperty(newProp);
       setIsSubmitting(false);
       setSubmittedSubmissionId(submissionRefId);
-    }, 600);
+    } catch (err: any) {
+      console.error('[ListPropertyModal] Property submission failed:', err);
+      setIsSubmitting(false);
+      setSubmissionError(
+        err?.message || 'Failed to submit property. Please check your Supabase credentials or database connection and try again.'
+      );
+    }
   };
 
   return (
@@ -1327,6 +1336,13 @@ export default function ListPropertyModal({
                     </p>
                   </div>
                 </div>
+
+                {submissionError && (
+                  <div className="p-4 bg-red-950/80 border border-red-500/80 rounded-xl text-red-200 text-xs space-y-1 animate-in fade-in">
+                    <strong className="text-red-400 block font-bold">Submission Failed:</strong>
+                    <span>{submissionError}</span>
+                  </div>
+                )}
 
                 <div className="pt-2 border-t border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div className="text-xs text-gray-400">
