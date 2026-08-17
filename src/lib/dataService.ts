@@ -634,21 +634,8 @@ export class DataService {
 
   // Check version and refresh if stale
   static async checkForServerUpdates() {
-    try {
-      if (isSupabaseConfigured()) {
-        return;
-      }
-      const res = await fetch('/api/sync/version');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.version && currentServerVersion && data.version > currentServerVersion) {
-          currentServerVersion = data.version;
-          await DataService.refreshAllDataFromServer();
-        } else if (data.version && !currentServerVersion) {
-          currentServerVersion = data.version;
-        }
-      }
-    } catch (e) {}
+    // When Supabase is used, realtime subscription handles instant updates.
+    // For local fallback, periodic sync handles freshness.
   }
 
   // Handle incoming real-time messages from local BroadcastChannel or SSE
@@ -880,15 +867,6 @@ export class DataService {
       }
     }
 
-    // ── Step 3: API fallback (no Supabase) ──
-    try {
-      await fetch('/api/properties', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(property),
-      });
-    } catch (e) {}
-
     return localUpdated;
   }
 
@@ -1008,10 +986,6 @@ export class DataService {
       }
     }
 
-    try {
-      await fetch(`/api/properties/${encodeURIComponent(id)}`, { method: 'DELETE' });
-    } catch (e) {}
-
     const current = await this.getProperties(isSupabaseConfigured());
     const updated = current.filter((p) => p.id !== id);
 
@@ -1063,25 +1037,6 @@ export class DataService {
       return memoryCache.news.data;
     }
 
-    try {
-      const res = await fetch('/api/news');
-      if (res.ok) {
-        const json = await res.json();
-        if (json.data && Array.isArray(json.data) && json.data.length > 0) {
-          let newsList: NewsItem[] = json.data;
-          newsList = newsList.map((item) => {
-            if (item.category === 'Policy Update' || item.category === 'Policy Updates') {
-              return { ...item, category: 'Latest Update' };
-            }
-            return item;
-          });
-          memoryCache.news = { data: newsList, timestamp: Date.now() };
-          saveToStorage('pr_news_v2', newsList);
-          return newsList;
-        }
-      }
-    } catch (e) {}
-
     const stored = readFromStorage<NewsItem[]>('pr_news_v2');
     if (!forceRefresh && stored && Date.now() - stored.timestamp < CACHE_TTL_MS) {
       memoryCache.news = stored;
@@ -1117,14 +1072,6 @@ export class DataService {
     saveToStorage('pr_news_v2', updated);
     this.broadcastLocal('NEWS_SAVED', { newsItem: item, allNews: updated });
 
-    try {
-      await fetch('/api/news', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(item),
-      });
-    } catch (e) {}
-
     if (isSupabaseConfigured()) {
       try {
         const supabase = getSupabaseClient();
@@ -1147,10 +1094,6 @@ export class DataService {
     memoryCache.news = { data: updated, timestamp: Date.now() };
     saveToStorage('pr_news_v2', updated);
     this.broadcastLocal('NEWS_DELETED', { id, allNews: updated });
-
-    try {
-      await fetch(`/api/news/${encodeURIComponent(id)}`, { method: 'DELETE' });
-    } catch (e) {}
 
     if (isSupabaseConfigured()) {
       try {
@@ -1195,18 +1138,6 @@ export class DataService {
       return memoryCache.prServices.data;
     }
 
-    try {
-      const res = await fetch('/api/pr-services');
-      if (res.ok) {
-        const json = await res.json();
-        if (json.data && Array.isArray(json.data) && json.data.length > 0) {
-          memoryCache.prServices = { data: json.data, timestamp: Date.now() };
-          saveToStorage('pr_services_v2', json.data);
-          return json.data;
-        }
-      }
-    } catch (e) {}
-
     const stored = readFromStorage<PRServiceItem[]>('pr_services_v2');
     if (!forceRefresh && stored && Date.now() - stored.timestamp < CACHE_TTL_MS) {
       memoryCache.prServices = stored;
@@ -1235,14 +1166,6 @@ export class DataService {
     saveToStorage('pr_services_v2', updated);
     this.broadcastLocal('PR_SERVICE_SAVED', { prService: service, allPRServices: updated });
 
-    try {
-      await fetch('/api/pr-services', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(service),
-      });
-    } catch (e) {}
-
     if (isSupabaseConfigured()) {
       try {
         const supabase = getSupabaseClient();
@@ -1265,10 +1188,6 @@ export class DataService {
     memoryCache.prServices = { data: updated, timestamp: Date.now() };
     saveToStorage('pr_services_v2', updated);
     this.broadcastLocal('PR_SERVICE_DELETED', { id, allPRServices: updated });
-
-    try {
-      await fetch(`/api/pr-services/${encodeURIComponent(id)}`, { method: 'DELETE' });
-    } catch (e) {}
 
     if (isSupabaseConfigured()) {
       try {
@@ -1313,18 +1232,6 @@ export class DataService {
       return memoryCache.leads.data;
     }
 
-    try {
-      const res = await fetch('/api/leads');
-      if (res.ok) {
-        const json = await res.json();
-        if (json.data && Array.isArray(json.data) && json.data.length > 0) {
-          memoryCache.leads = { data: json.data, timestamp: Date.now() };
-          saveToStorage('pr_leads_v2', json.data);
-          return json.data;
-        }
-      }
-    } catch (e) {}
-
     const stored = readFromStorage<Lead[]>('pr_leads_v2');
     if (!forceRefresh && stored && Date.now() - stored.timestamp < CACHE_TTL_MS) {
       memoryCache.leads = stored;
@@ -1353,14 +1260,6 @@ export class DataService {
     saveToStorage('pr_leads_v2', updated);
     this.broadcastLocal('LEAD_SAVED', { lead, allLeads: updated });
 
-    try {
-      await fetch('/api/leads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(lead),
-      });
-    } catch (e) {}
-
     if (isSupabaseConfigured()) {
       try {
         const supabase = getSupabaseClient();
@@ -1383,10 +1282,6 @@ export class DataService {
     memoryCache.leads = { data: updated, timestamp: Date.now() };
     saveToStorage('pr_leads_v2', updated);
     this.broadcastLocal('LEAD_DELETED', { id, allLeads: updated });
-
-    try {
-      await fetch(`/api/leads/${encodeURIComponent(id)}`, { method: 'DELETE' });
-    } catch (e) {}
 
     if (isSupabaseConfigured()) {
       try {
@@ -1427,18 +1322,6 @@ export class DataService {
       return memoryCache.construction.data;
     }
 
-    try {
-      const res = await fetch('/api/construction');
-      if (res.ok) {
-        const json = await res.json();
-        if (json.data && Array.isArray(json.data) && json.data.length > 0) {
-          memoryCache.construction = { data: json.data, timestamp: Date.now() };
-          saveToStorage('pr_construction_v2', json.data);
-          return json.data;
-        }
-      }
-    } catch (e) {}
-
     const stored = readFromStorage<ConstructionPackage[]>('pr_construction_v2');
     if (!forceRefresh && stored && Date.now() - stored.timestamp < CACHE_TTL_MS) {
       memoryCache.construction = stored;
@@ -1467,14 +1350,6 @@ export class DataService {
     saveToStorage('pr_construction_v2', updated);
     this.broadcastLocal('CONSTRUCTION_SAVED', { package: pkg, allConstruction: updated });
 
-    try {
-      await fetch('/api/construction', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(pkg),
-      });
-    } catch (e) {}
-
     if (isSupabaseConfigured()) {
       try {
         const supabase = getSupabaseClient();
@@ -1497,10 +1372,6 @@ export class DataService {
     memoryCache.construction = { data: updated, timestamp: Date.now() };
     saveToStorage('pr_construction_v2', updated);
     this.broadcastLocal('CONSTRUCTION_DELETED', { id, allConstruction: updated });
-
-    try {
-      await fetch(`/api/construction/${encodeURIComponent(id)}`, { method: 'DELETE' });
-    } catch (e) {}
 
     if (isSupabaseConfigured()) {
       try {
@@ -1541,18 +1412,6 @@ export class DataService {
       return memoryCache.siteSettings.data;
     }
 
-    try {
-      const res = await fetch('/api/site-settings');
-      if (res.ok) {
-        const json = await res.json();
-        if (json.data) {
-          memoryCache.siteSettings = { data: json.data, timestamp: Date.now() };
-          saveToStorage('pr_site_settings_v2', json.data);
-          return json.data;
-        }
-      }
-    } catch (e) {}
-
     const stored = readFromStorage<SiteSettings>('pr_site_settings_v2');
     if (!forceRefresh && stored && Date.now() - stored.timestamp < CACHE_TTL_MS) {
       memoryCache.siteSettings = stored;
@@ -1569,14 +1428,6 @@ export class DataService {
     memoryCache.siteSettings = { data: settings, timestamp: Date.now() };
     saveToStorage('pr_site_settings_v2', settings);
     this.broadcastLocal('SETTINGS_SAVED', { siteSettings: settings });
-
-    try {
-      await fetch('/api/site-settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
-      });
-    } catch (e) {}
 
     if (isSupabaseConfigured()) {
       try {
@@ -1618,18 +1469,6 @@ export class DataService {
       return memoryCache.projects.data;
     }
 
-    try {
-      const res = await fetch('/api/projects');
-      if (res.ok) {
-        const json = await res.json();
-        if (json.data && Array.isArray(json.data) && json.data.length > 0) {
-          memoryCache.projects = { data: json.data, timestamp: Date.now() };
-          saveToStorage('pr_projects_v2', json.data);
-          return json.data;
-        }
-      }
-    } catch (e) {}
-
     const stored = readFromStorage<Project[]>('pr_projects_v2');
     if (!forceRefresh && stored && Date.now() - stored.timestamp < CACHE_TTL_MS) {
       memoryCache.projects = stored;
@@ -1658,14 +1497,6 @@ export class DataService {
     saveToStorage('pr_projects_v2', updated);
     this.broadcastLocal('PROJECT_SAVED', { project, allProjects: updated });
 
-    try {
-      await fetch('/api/projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(project),
-      });
-    } catch (e) {}
-
     if (isSupabaseConfigured()) {
       try {
         const supabase = getSupabaseClient();
@@ -1688,10 +1519,6 @@ export class DataService {
     memoryCache.projects = { data: updated, timestamp: Date.now() };
     saveToStorage('pr_projects_v2', updated);
     this.broadcastLocal('PROJECT_DELETED', { id, allProjects: updated });
-
-    try {
-      await fetch(`/api/projects/${encodeURIComponent(id)}`, { method: 'DELETE' });
-    } catch (e) {}
 
     if (isSupabaseConfigured()) {
       try {
@@ -1744,10 +1571,6 @@ export class DataService {
     delete memoryCache.construction;
     delete memoryCache.siteSettings;
     delete memoryCache.projects;
-
-    try {
-      fetch('/api/reset-defaults', { method: 'POST' });
-    } catch (e) {}
   }
 
   // Get Supabase SQL Schema for setup
