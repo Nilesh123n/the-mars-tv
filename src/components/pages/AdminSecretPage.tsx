@@ -40,13 +40,31 @@ import {
   KeyRound,
   Key,
   Home,
-  CheckSquare
+  CheckSquare,
+  Calendar,
+  FileSpreadsheet,
+  FileDown,
+  Download,
+  Filter,
+  FilterX,
+  MessageSquare,
+  PhoneCall,
+  ExternalLink,
+  Clock,
+  Sparkles
 } from 'lucide-react';
 import { Property, NewsItem, PRServiceItem, Lead, PropertyType, ListingType, PropertyStatus, ConstructionPackage, SiteSettings, LeadStatus } from '../../types';
 import { DataService } from '../../lib/dataService';
 import { isSupabaseConfigured, getSupabaseCredentials, saveSupabaseConfig } from '../../lib/supabase';
 import { useDebounce } from '../../hooks/useDebounce';
 import LocationFilterBar, { LocationFilterSelection } from '../common/LocationFilterBar';
+import {
+  exportLeadsToExcel,
+  exportLeadsToPDF,
+  filterLeads,
+  LeadDateFilterPreset,
+  formatLeadDateTime
+} from '../../utils/leadExportUtils';
 import {
   INDIA_LOCATION_DATA,
   INTERNATIONAL_LOCATION_DATA,
@@ -178,6 +196,15 @@ export default function AdminSecretPage({
   const [supabaseKeyInput, setSupabaseKeyInput] = useState('');
   const [copiedSchema, setCopiedSchema] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  // Leads Date Filter, Status Filter, Search, and Export State
+  const [leadDatePreset, setLeadDatePreset] = useState<LeadDateFilterPreset>('ALL');
+  const [leadCustomStartDate, setLeadCustomStartDate] = useState('');
+  const [leadCustomEndDate, setLeadCustomEndDate] = useState('');
+  const [leadStatusFilter, setLeadStatusFilter] = useState<string>('ALL');
+  const [leadSearchQuery, setLeadSearchQuery] = useState('');
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
 
   // Settings Form State
   const [settingsForm, setSettingsForm] = useState<SiteSettings>(siteSettings);
@@ -638,7 +665,7 @@ export default function AdminSecretPage({
   };
 
   // -------------------------------------------------------------
-  // 4. LEADS STATUS UPDATE
+  // 4. LEADS ACTIONS & EXPORTS (EXCEL & PDF & DATE FILTER)
   // -------------------------------------------------------------
   const handleUpdateLeadStatus = async (id: string, newStatus: LeadStatus) => {
     const lead = leads.find((l) => l.id === id);
@@ -647,6 +674,103 @@ export default function AdminSecretPage({
     const updatedList = await DataService.saveLead(updatedLead);
     setLeads(updatedList);
     showToast(`Lead status updated to ${newStatus}`);
+  };
+
+  const handleDeleteLead = async (id: string, clientName: string) => {
+    if (confirm(`Are you sure you want to permanently delete inquiry from "${clientName}"?`)) {
+      try {
+        const updatedList = await DataService.deleteLead(id);
+        setLeads(updatedList);
+        showToast(`Lead from "${clientName}" deleted.`);
+      } catch (err: any) {
+        console.error('Delete lead error:', err);
+        showToast(`Delete lead failed: ${err?.message || 'Error deleting lead'}`);
+      }
+    }
+  };
+
+  const handleExportLeadsExcel = () => {
+    try {
+      setIsExportingExcel(true);
+      const effectiveSearch = leadSearchQuery || debouncedSearch;
+      const filtered = filterLeads(leads, {
+        datePreset: leadDatePreset,
+        customStartDate: leadCustomStartDate,
+        customEndDate: leadCustomEndDate,
+        status: leadStatusFilter,
+        searchQuery: effectiveSearch,
+      });
+
+      if (!filtered || filtered.length === 0) {
+        showToast('No leads match the selected date/filters to export.');
+        return;
+      }
+
+      exportLeadsToExcel(filtered, `Filter: ${leadDatePreset} | Status: ${leadStatusFilter}`);
+      showToast(`Exported ${filtered.length} leads to Excel spreadsheet (.xlsx)!`);
+    } catch (err: any) {
+      console.error('Excel Export Error:', err);
+      showToast(`Excel Export Failed: ${err?.message || 'Error exporting to Excel'}`);
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
+
+  const handleExportLeadsPDF = () => {
+    try {
+      setIsExportingPDF(true);
+      const effectiveSearch = leadSearchQuery || debouncedSearch;
+      const filtered = filterLeads(leads, {
+        datePreset: leadDatePreset,
+        customStartDate: leadCustomStartDate,
+        customEndDate: leadCustomEndDate,
+        status: leadStatusFilter,
+        searchQuery: effectiveSearch,
+      });
+
+      if (!filtered || filtered.length === 0) {
+        showToast('No leads match the selected date/filters to export.');
+        return;
+      }
+
+      let dateLabel: string = leadDatePreset.replace(/_/g, ' ');
+      if (leadDatePreset === 'CUSTOM') {
+        dateLabel = `${leadCustomStartDate || 'Beginning'} to ${leadCustomEndDate || 'Today'}`;
+      } else if (leadDatePreset === 'TODAY') {
+        dateLabel = 'Today';
+      } else if (leadDatePreset === 'YESTERDAY') {
+        dateLabel = 'Yesterday';
+      } else if (leadDatePreset === 'LAST_7_DAYS') {
+        dateLabel = 'Last 7 Days';
+      } else if (leadDatePreset === 'THIS_MONTH') {
+        dateLabel = 'This Month';
+      } else if (leadDatePreset === 'LAST_30_DAYS') {
+        dateLabel = 'Last 30 Days';
+      } else {
+        dateLabel = 'All Time';
+      }
+
+      exportLeadsToPDF(filtered, {
+        dateLabel,
+        statusLabel: leadStatusFilter,
+        searchQuery: effectiveSearch,
+      });
+      showToast(`Exported ${filtered.length} leads to PDF report!`);
+    } catch (err: any) {
+      console.error('PDF Export Error:', err);
+      showToast(`PDF Export Failed: ${err?.message || 'Error exporting to PDF'}`);
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
+
+  const handleResetLeadFilters = () => {
+    setLeadDatePreset('ALL');
+    setLeadCustomStartDate('');
+    setLeadCustomEndDate('');
+    setLeadStatusFilter('ALL');
+    setLeadSearchQuery('');
+    showToast('Lead date & status filters reset.');
   };
 
   // -------------------------------------------------------------
@@ -1965,54 +2089,431 @@ export default function AdminSecretPage({
           </div>
         )}
 
-        {/* TAB 4: LEADS MANAGEMENT */}
-        {activeTab === 'leads' && (
-          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
-            <div className="p-4 bg-gray-50 border-b border-gray-200 font-bold text-xs uppercase tracking-wider text-gray-500 flex justify-between items-center">
-              <span>Client Inquiries & Call Back Requests ({leads.length})</span>
-            </div>
-            <div className="divide-y divide-gray-100">
-              {leads.map((lead) => (
-                <div key={lead.id} className="p-4 hover:bg-gray-50 transition-colors flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        {/* TAB 4: LEADS MANAGEMENT (DATE FILTER & EXCEL/PDF EXPORT) */}
+        {activeTab === 'leads' && (() => {
+          const effectiveSearch = leadSearchQuery || debouncedSearch;
+          const filteredLeads = filterLeads(leads, {
+            datePreset: leadDatePreset,
+            customStartDate: leadCustomStartDate,
+            customEndDate: leadCustomEndDate,
+            status: leadStatusFilter,
+            searchQuery: effectiveSearch,
+          });
+
+          const isFilterActive =
+            leadDatePreset !== 'ALL' ||
+            leadCustomStartDate !== '' ||
+            leadCustomEndDate !== '' ||
+            leadStatusFilter !== 'ALL' ||
+            leadSearchQuery.trim() !== '';
+
+          const countNew = leads.filter((l) => l.status === 'NEW').length;
+          const countConverted = leads.filter((l) => l.status === 'CONVERTED').length;
+          const countContacted = leads.filter((l) => l.status === 'CONTACTED').length;
+
+          const datePresetsList: { id: LeadDateFilterPreset; label: string }[] = [
+            { id: 'ALL', label: 'All Time' },
+            { id: 'TODAY', label: 'Today' },
+            { id: 'YESTERDAY', label: 'Yesterday' },
+            { id: 'LAST_7_DAYS', label: 'Last 7 Days' },
+            { id: 'THIS_MONTH', label: 'This Month' },
+            { id: 'LAST_30_DAYS', label: 'Last 30 Days' },
+            { id: 'CUSTOM', label: 'Custom Range' },
+          ];
+
+          return (
+            <div className="space-y-5">
+              {/* TOP HEADER & EXPORT ACTIONS CARD */}
+              <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6 shadow-sm">
+                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
                   <div>
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-bold text-gray-900 text-sm">{lead.name}</h4>
-                      <span className="bg-gray-100 text-gray-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase">
-                        {lead.leadType}
-                      </span>
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 bg-[#D61F26]/10 text-[#D61F26] rounded-xl">
+                        <FileText className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h2 className="text-lg font-black text-gray-900 flex items-center gap-2">
+                          <span>Client Leads & Inquiries</span>
+                          <span className="bg-gray-100 text-gray-800 text-xs font-black px-2.5 py-0.5 rounded-full">
+                            {filteredLeads.length} of {leads.length}
+                          </span>
+                        </h2>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Filter inquiries by date, search, and export data directly to Excel (.xlsx) and PDF.
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-600 mt-1 flex flex-wrap gap-x-4 gap-y-1">
-                      <span><strong>Phone:</strong> {lead.phone}</span>
-                      {lead.email && <span><strong>Email:</strong> {lead.email}</span>}
-                      {lead.propertyTitle && <span><strong>Property:</strong> {lead.propertyTitle}</span>}
-                    </div>
-                    {lead.message && (
-                      <p className="text-xs text-gray-500 mt-1.5 italic bg-gray-50 p-2 rounded border border-gray-100">
-                        "{lead.message}"
-                      </p>
+                  </div>
+
+                  {/* EXPORT ACTION BUTTONS */}
+                  <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
+                    {/* Excel Export Button */}
+                    <button
+                      type="button"
+                      onClick={handleExportLeadsExcel}
+                      disabled={isExportingExcel || filteredLeads.length === 0}
+                      className={`
+                        flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer border
+                        ${
+                          filteredLeads.length === 0
+                            ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                            : 'bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white border-emerald-600 shadow-emerald-600/20'
+                        }
+                      `}
+                      title="Export filtered leads to Microsoft Excel (.xlsx)"
+                    >
+                      <FileSpreadsheet className="w-4 h-4 shrink-0" />
+                      <span>{isExportingExcel ? 'Exporting...' : 'Export Excel (.xlsx)'}</span>
+                    </button>
+
+                    {/* PDF Export Button */}
+                    <button
+                      type="button"
+                      onClick={handleExportLeadsPDF}
+                      disabled={isExportingPDF || filteredLeads.length === 0}
+                      className={`
+                        flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer border
+                        ${
+                          filteredLeads.length === 0
+                            ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                            : 'bg-[#D61F26] hover:bg-red-700 active:scale-95 text-white border-red-700 shadow-red-700/20'
+                        }
+                      `}
+                      title="Export filtered leads to PDF Report"
+                    >
+                      <FileDown className="w-4 h-4 shrink-0" />
+                      <span>{isExportingPDF ? 'Generating...' : 'Export PDF (.pdf)'}</span>
+                    </button>
+
+                    {/* Manual Refresh Button */}
+                    <button
+                      type="button"
+                      onClick={handleManualSync}
+                      disabled={isSyncing}
+                      className="p-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl border border-gray-200 transition-colors cursor-pointer"
+                      title="Refresh leads from database"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin text-[#D61F26]' : ''}`} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* KPI METRIC STRIP */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5 pt-4 border-t border-gray-100">
+                  <div className="bg-gray-50 rounded-xl p-3 border border-gray-200/70">
+                    <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Total Leads</p>
+                    <p className="text-xl font-black text-gray-900 mt-0.5">{leads.length}</p>
+                  </div>
+                  <div className="bg-amber-50/70 rounded-xl p-3 border border-amber-200/70">
+                    <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wider">New (Action Needed)</p>
+                    <p className="text-xl font-black text-amber-900 mt-0.5">{countNew}</p>
+                  </div>
+                  <div className="bg-blue-50/70 rounded-xl p-3 border border-blue-200/70">
+                    <p className="text-[11px] font-bold text-blue-700 uppercase tracking-wider">Contacted</p>
+                    <p className="text-xl font-black text-blue-900 mt-0.5">{countContacted}</p>
+                  </div>
+                  <div className="bg-emerald-50/70 rounded-xl p-3 border border-emerald-200/70">
+                    <p className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">Converted</p>
+                    <p className="text-xl font-black text-emerald-900 mt-0.5">{countConverted}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* DATE & SEARCH FILTER CONTROLS */}
+              <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-5 shadow-sm space-y-4">
+                {/* 1. Date Filter Preset Tabs */}
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-2.5">
+                    <label className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-[#D61F26]" />
+                      <span>Date Filter:</span>
+                    </label>
+
+                    {isFilterActive && (
+                      <button
+                        type="button"
+                        onClick={handleResetLeadFilters}
+                        className="text-[11px] font-bold text-[#D61F26] hover:text-red-800 flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        <FilterX className="w-3.5 h-3.5" />
+                        <span>Clear All Filters</span>
+                      </button>
                     )}
                   </div>
-                  <div className="text-right shrink-0 flex flex-col items-end gap-1.5">
-                    <span className="text-[11px] text-gray-400 block">
-                      {new Date(lead.createdAt).toLocaleDateString()}
-                    </span>
+
+                  <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                    {datePresetsList.map((preset) => {
+                      const active = leadDatePreset === preset.id;
+                      return (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => setLeadDatePreset(preset.id)}
+                          className={`
+                            px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border flex items-center gap-1.5
+                            ${
+                              active
+                                ? 'bg-[#D61F26] text-white border-[#D61F26] shadow-sm shadow-red-700/20'
+                                : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200'
+                            }
+                          `}
+                        >
+                          <span>{preset.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 2. Custom Date Range Pickers (Visible when 'CUSTOM' is selected) */}
+                {leadDatePreset === 'CUSTOM' && (
+                  <div className="p-3.5 bg-red-50/50 rounded-xl border border-red-200/80 animate-in fade-in slide-in-from-top-1 duration-150">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1">
+                          From Date (Start)
+                        </label>
+                        <input
+                          type="date"
+                          value={leadCustomStartDate}
+                          onChange={(e) => setLeadCustomStartDate(e.target.value)}
+                          className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-xs font-medium text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1">
+                          To Date (End)
+                        </label>
+                        <input
+                          type="date"
+                          value={leadCustomEndDate}
+                          onChange={(e) => setLeadCustomEndDate(e.target.value)}
+                          className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-xs font-medium text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. Status Filter & Search Input */}
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-2 border-t border-gray-100">
+                  {/* Search Field */}
+                  <div className="sm:col-span-8 relative">
+                    <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Search leads by Client Name, Phone, Email, Property..."
+                      value={leadSearchQuery}
+                      onChange={(e) => setLeadSearchQuery(e.target.value)}
+                      className="w-full pl-9.5 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#D61F26] focus:bg-white transition-all"
+                    />
+                    {leadSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setLeadSearchQuery('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Status Dropdown */}
+                  <div className="sm:col-span-4">
                     <select
-                      value={lead.status}
-                      onChange={(e) => handleUpdateLeadStatus(lead.id, e.target.value as LeadStatus)}
-                      className="bg-gray-100 border border-gray-300 rounded-lg px-2 py-1 text-xs font-bold text-gray-800 cursor-pointer focus:outline-none focus:border-[#D61F26]"
+                      value={leadStatusFilter}
+                      onChange={(e) => setLeadStatusFilter(e.target.value)}
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-800 focus:outline-none focus:border-[#D61F26] cursor-pointer"
                     >
-                      <option value="NEW">NEW</option>
-                      <option value="CONTACTED">CONTACTED</option>
-                      <option value="QUALIFIED">QUALIFIED</option>
-                      <option value="CONVERTED">CONVERTED</option>
-                      <option value="LOST">LOST</option>
+                      <option value="ALL">All Statuses ({leads.length})</option>
+                      <option value="NEW">NEW ({countNew})</option>
+                      <option value="CONTACTED">CONTACTED ({countContacted})</option>
+                      <option value="QUALIFIED">QUALIFIED ({leads.filter((l) => l.status === 'QUALIFIED').length})</option>
+                      <option value="CONVERTED">CONVERTED ({countConverted})</option>
+                      <option value="LOST">LOST ({leads.filter((l) => l.status === 'LOST').length})</option>
                     </select>
                   </div>
                 </div>
-              ))}
+              </div>
+
+              {/* LEADS LIST / CARDS */}
+              <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+                <div className="p-3.5 sm:p-4 bg-gray-50 border-b border-gray-200 flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-gray-700">
+                  <div className="flex items-center gap-2">
+                    <span>Showing {filteredLeads.length} of {leads.length} Leads</span>
+                    {isFilterActive && (
+                      <span className="bg-amber-100 text-amber-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-amber-200">
+                        Filtered
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[11px] text-gray-500 font-normal hidden sm:inline">
+                    Auto-synchronized across all devices
+                  </span>
+                </div>
+
+                {filteredLeads.length === 0 ? (
+                  <div className="p-10 sm:p-14 text-center space-y-3">
+                    <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto text-gray-400 border border-gray-200">
+                      <FilterX className="w-7 h-7" />
+                    </div>
+                    <h3 className="font-bold text-gray-900 text-base">No Leads Match Your Filter</h3>
+                    <p className="text-gray-500 text-xs max-w-md mx-auto">
+                      No customer inquiries found for the selected date range ({leadDatePreset.replace(/_/g, ' ')}) or status filter.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleResetLeadFilters}
+                      className="px-4 py-2 bg-gray-900 hover:bg-black text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-sm"
+                    >
+                      Reset Date & Status Filters
+                    </button>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-100">
+                    {filteredLeads.map((lead, idx) => {
+                      const cleanPhone = (lead.phone || '').replace(/[^0-9]/g, '');
+                      const whatsappUrl = cleanPhone ? `https://wa.me/91${cleanPhone.slice(-10)}` : null;
+
+                      // Status Badge Styling
+                      let statusBadgeClass = 'bg-gray-100 text-gray-700 border-gray-200';
+                      if (lead.status === 'NEW') {
+                        statusBadgeClass = 'bg-amber-100 text-amber-800 border-amber-300';
+                      } else if (lead.status === 'CONTACTED') {
+                        statusBadgeClass = 'bg-blue-100 text-blue-800 border-blue-300';
+                      } else if (lead.status === 'QUALIFIED') {
+                        statusBadgeClass = 'bg-purple-100 text-purple-800 border-purple-300';
+                      } else if (lead.status === 'CONVERTED') {
+                        statusBadgeClass = 'bg-emerald-100 text-emerald-800 border-emerald-300';
+                      } else if (lead.status === 'LOST') {
+                        statusBadgeClass = 'bg-red-50 text-red-700 border-red-200';
+                      }
+
+                      return (
+                        <div
+                          key={lead.id || idx}
+                          className="p-4 sm:p-5 hover:bg-gray-50/80 transition-colors flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4"
+                        >
+                          {/* Client & Inquiry Info */}
+                          <div className="space-y-2 flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-xs font-black text-gray-400 font-mono">
+                                #{idx + 1}
+                              </span>
+                              <h4 className="font-extrabold text-gray-900 text-sm sm:text-base">
+                                {lead.name}
+                              </h4>
+                              <span
+                                className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border uppercase ${statusBadgeClass}`}
+                              >
+                                {lead.status}
+                              </span>
+                              <span className="bg-red-50 text-[#D61F26] border border-red-100 text-[10px] font-black px-2 py-0.5 rounded uppercase">
+                                {lead.leadType}
+                              </span>
+                            </div>
+
+                            {/* Contact Details & Property Context */}
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-gray-600">
+                              {/* Phone */}
+                              <div className="flex items-center gap-1.5 font-semibold text-gray-800">
+                                <Phone className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                <a
+                                  href={`tel:${lead.phone}`}
+                                  className="hover:text-[#D61F26] hover:underline"
+                                  title="Call Client"
+                                >
+                                  {lead.phone}
+                                </a>
+                                {whatsappUrl && (
+                                  <a
+                                    href={whatsappUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="ml-1 text-emerald-600 hover:text-emerald-700 font-bold text-[10px] bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 inline-flex items-center gap-0.5"
+                                    title="Open WhatsApp Chat"
+                                  >
+                                    <span>WA</span>
+                                  </a>
+                                )}
+                              </div>
+
+                              {/* Email */}
+                              {lead.email && (
+                                <div className="flex items-center gap-1.5">
+                                  <Mail className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                  <a
+                                    href={`mailto:${lead.email}`}
+                                    className="hover:text-[#D61F26] hover:underline truncate max-w-[220px]"
+                                    title="Email Client"
+                                  >
+                                    {lead.email}
+                                  </a>
+                                </div>
+                              )}
+
+                              {/* Property Title / Context */}
+                              {lead.propertyTitle && (
+                                <div className="flex items-center gap-1.5 text-gray-700">
+                                  <Building className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                  <span className="truncate max-w-[260px]">
+                                    <strong>Property:</strong> {lead.propertyTitle}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Client Message */}
+                            {lead.message && (
+                              <div className="text-xs text-gray-600 bg-gray-50 rounded-xl p-2.5 border border-gray-200/80 flex items-start gap-2 max-w-3xl">
+                                <MessageSquare className="w-3.5 h-3.5 text-gray-400 shrink-0 mt-0.5" />
+                                <p className="italic leading-relaxed">{lead.message}</p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Status Management & Actions */}
+                          <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start w-full lg:w-auto gap-2.5 pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-100 shrink-0">
+                            {/* Date Badge */}
+                            <div className="flex items-center gap-1 text-[11px] text-gray-500">
+                              <Clock className="w-3 h-3 text-gray-400 shrink-0" />
+                              <span>{formatLeadDateTime(lead.createdAt)}</span>
+                            </div>
+
+                            {/* Status Selector & Delete */}
+                            <div className="flex items-center gap-2">
+                              <select
+                                value={lead.status}
+                                onChange={(e) => handleUpdateLeadStatus(lead.id, e.target.value as LeadStatus)}
+                                className="bg-gray-100 hover:bg-gray-200/80 border border-gray-300 rounded-xl px-2.5 py-1.5 text-xs font-bold text-gray-900 cursor-pointer focus:outline-none focus:border-[#D61F26] transition-colors"
+                              >
+                                <option value="NEW">Status: NEW</option>
+                                <option value="CONTACTED">Status: CONTACTED</option>
+                                <option value="QUALIFIED">Status: QUALIFIED</option>
+                                <option value="CONVERTED">Status: CONVERTED</option>
+                                <option value="LOST">Status: LOST</option>
+                              </select>
+
+                              {/* Delete Lead Button */}
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteLead(lead.id, lead.name)}
+                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer border border-transparent hover:border-red-200"
+                                title="Delete Lead"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* TAB 5: CONSTRUCTION PACKAGES */}
         {activeTab === 'construction' && (
