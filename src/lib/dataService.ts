@@ -45,6 +45,22 @@ const memoryCache: {
   projects?: CacheEnvelope<Project[]>;
 } = {};
 
+// Helper: agar data me base64 (data:) images hain, unko localStorage cache ke liye
+// halka kar do — asli images Supabase me safe hain, ye sirf offline fallback cache hai
+function lightenForStorage(key: string, data: unknown): unknown {
+  if (key !== 'pr_properties_v2' || !Array.isArray(data)) return data;
+  return (data as Property[]).map((p) => ({
+    ...p,
+    images: Array.isArray(p.images)
+      ? p.images.map((img) =>
+          img?.url && img.url.startsWith('data:')
+            ? { ...img, url: '' } // bada base64 string localStorage cache se hata do
+            : img
+        )
+      : p.images,
+  }));
+}
+
 // Helper to save to LocalStorage safely
 function saveToStorage<T>(key: string, data: T) {
   try {
@@ -55,6 +71,18 @@ function saveToStorage<T>(key: string, data: T) {
     localStorage.setItem(key, JSON.stringify(envelope));
   } catch (e) {
     console.warn('Storage save warning:', e);
+    // Quota exceeded ho sakta hai bade base64 image data ki wajah se —
+    // ek halka version try karo taaki cache poori tarah fail na ho
+    try {
+      const lightData = lightenForStorage(key, data);
+      const lightEnvelope: CacheEnvelope<unknown> = {
+        data: lightData,
+        timestamp: Date.now(),
+      };
+      localStorage.setItem(key, JSON.stringify(lightEnvelope));
+    } catch (e2) {
+      console.warn('Storage lightweight save also failed (skipping local cache):', e2);
+    }
   }
 }
 
@@ -337,18 +365,22 @@ export class DataService {
             } else if (e.key === 'pr_site_settings_v2') {
               memoryCache.siteSettings = parsed;
               syncListeners.forEach((fn) => fn('SETTINGS_SAVED', { siteSettings: parsed.data }));
-            }
-          }
-        } catch (err) {}
-      }
-    });
-
     // 4. Server-Sent Events (SSE) for Real-Time Cross-Device Sync (Mobile <-> Desktop)
+    // Note: Ye sirf tab kaam karta hai jab server.ts (Express backend) actually chal raha ho.
+    // Static hosting (jahan sirf built dist serve hoti hai) pe /api/sync/events 404 dega —
+    // is case me Supabase Realtime (upar wala) already sync sambhal leta hai, isliye
+    // hum limited retries ke baad SSE ko chhod dete hain taaki console spam na ho.
     let eventSource: EventSource | null = null;
+    let sseRetryCount = 0;
+    const MAX_SSE_RETRIES = 3;
 
     function connectSSE() {
       try {
         eventSource = new EventSource('/api/sync/events');
+
+        eventSource.onopen = () => {
+          sseRetryCount = 0;
+        };
 
         eventSource.onmessage = (e) => {
           try {
@@ -367,14 +399,27 @@ export class DataService {
             eventSource.close();
             eventSource = null;
           }
-          setTimeout(connectSSE, 3000);
+          sseRetryCount += 1;
+          if (sseRetryCount <= MAX_SSE_RETRIES) {
+            setTimeout(connectSSE, 3000);
+          } else {
+            console.warn(
+              '[DataService] /api/sync/events unavailable (static hosting?) — relying on Supabase Realtime for sync.'
+            );
+          }
         };
       } catch (err) {
         console.warn('SSE connection fallback:', err);
       }
     }
 
-    connectSSE();
+    connectSSE();            }
+          }
+        } catch (err) {}
+      }
+    });
+
+
 
     // 5. Window focus & visibility listener (instantly sync when user opens tab/app)
     const handleFocusOrVisible = () => {
