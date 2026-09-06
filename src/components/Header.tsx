@@ -73,12 +73,15 @@ export default function Header({
           {/* Brand Logo */}
           <button
             onClick={() => handleNavClick('home')}
-            className="flex items-center gap-2 sm:gap-2.5 flex-shrink-0 text-left cursor-pointer group py-1"
-            aria-label="Go to Home page"
+            className="flex items-center gap-2 sm:gap-3 flex-shrink-0 text-left cursor-pointer group py-1"
+            aria-label="The Mars TV - Go to Home page"
           >
-            <div className="w-8.5 h-8.5 sm:w-9.5 sm:h-9.5 bg-white text-[#D61F26] rounded-xl flex items-center justify-center shadow-md group-hover:scale-105 transition-transform flex-shrink-0">
-              <Home className="w-5 h-5 text-[#D61F26]" />
-            </div>
+            <img
+              src="/mars_tv_logo.jpg"
+              alt="The Mars TV Logo"
+              referrerPolicy="no-referrer"
+              className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl object-cover shadow-md border-2 border-amber-400/80 group-hover:scale-105 transition-transform flex-shrink-0"
+            />
             <div className="flex flex-col leading-tight">
               <span
                 className="font-black text-[15px] sm:text-[17px] tracking-wide text-white"
@@ -87,7 +90,7 @@ export default function Header({
                 THE MARS TV
               </span>
               <span className="text-[9px] sm:text-[9.5px] text-white/90 tracking-widest uppercase font-bold">
-                Real Estate Portal
+                Real Estate Media &amp; Portal
               </span>
             </div>
           </button>

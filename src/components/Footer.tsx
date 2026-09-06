@@ -22,17 +22,23 @@ export default function Footer({ onNavigate }: FooterProps) {
           <div className="lg:col-span-2 space-y-4">
             <button
               onClick={() => onNavigate('home')}
-              className="flex items-center gap-2.5 text-left cursor-pointer group bg-white text-[#D61F26] px-3.5 py-2 rounded-xl shadow-md hover:bg-gray-100 transition-all inline-flex"
+              className="flex items-center gap-3 text-left cursor-pointer group bg-white text-[#D61F26] p-2.5 sm:p-3 rounded-2xl shadow-lg hover:bg-gray-50 transition-all inline-flex border border-red-100"
             >
-              <div className="w-8 h-8 bg-[#D61F26] text-white rounded-lg flex items-center justify-center shadow-sm">
-                <Home className="w-4.5 h-4.5" />
-              </div>
+              <img
+                src="/mars_tv_logo.jpg"
+                alt="The Mars TV Logo"
+                referrerPolicy="no-referrer"
+                className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover shadow-md border border-amber-400/60 flex-shrink-0 group-hover:scale-105 transition-transform"
+              />
               <div className="flex flex-col leading-tight">
-                <span className="font-extrabold text-[16px] text-[#D61F26]" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                <span className="font-extrabold text-[17px] sm:text-[19px] text-[#D61F26]" style={{ fontFamily: 'Poppins, sans-serif' }}>
                   THE MARS TV
                 </span>
-                <span className="text-[9px] text-gray-600 uppercase tracking-widest font-bold">
-                  Find. Buy. Sell. Trust.
+                <span className="text-[10px] text-gray-600 uppercase tracking-wider font-bold">
+                  Real Estate Media &amp; Listings
+                </span>
+                <span className="text-[11px] text-red-700 font-semibold mt-1 flex items-center gap-1">
+                  🌐 www.themarstv.in
                 </span>
               </div>
             </button>

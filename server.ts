@@ -398,7 +398,13 @@ async function startServer() {
   });
 
   // -----------------------------------------------------------------
-  // VITE / STATIC ASSET SERVING
+  // STATIC ASSET SERVING
+  // -----------------------------------------------------------------
+  app.use(express.static(path.join(process.cwd(), 'public')));
+  app.use('/assets', express.static(path.join(process.cwd(), 'src/assets')));
+
+  // -----------------------------------------------------------------
+  // VITE / SPA FALLBACK
   // -----------------------------------------------------------------
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
