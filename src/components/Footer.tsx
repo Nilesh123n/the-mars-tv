@@ -1,4 +1,4 @@
-import { Home, Facebook, Instagram, Linkedin, Youtube, Twitter, Mail, Phone, MapPin } from 'lucide-react';
+import { Home, Facebook, Instagram, Linkedin, Youtube, Twitter, Mail, Phone, MapPin, MessageCircle } from 'lucide-react';
 
 interface FooterProps {
   onNavigate: (view: string) => void;
@@ -37,9 +37,15 @@ export default function Footer({ onNavigate }: FooterProps) {
                 <span className="text-[10px] text-gray-600 uppercase tracking-wider font-bold">
                   Real Estate Media &amp; Listings
                 </span>
-                <span className="text-[11px] text-red-700 font-semibold mt-1 flex items-center gap-1">
-                  🌐 www.themarstv.in
-                </span>
+                <a
+                  href="https://www.themarstv.com"
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-[11px] text-red-700 hover:text-red-900 font-bold mt-1 inline-flex items-center gap-1 hover:underline"
+                >
+                  🌐 www.themarstv.com
+                </a>
               </div>
             </button>
 
@@ -50,15 +56,33 @@ export default function Footer({ onNavigate }: FooterProps) {
               Central India's leading verified real estate marketplace. Connecting property buyers, investors, and developers with complete transparency.
             </p>
 
-            <div className="space-y-2 pt-2 text-white">
-              <a href="mailto:support@themarstv.in" className="flex items-center gap-2.5 text-white hover:underline text-[13px] font-medium transition-colors">
-                <Mail className="w-4 h-4 text-white" />
-                <span>support@themarstv.in</span>
+            <div className="space-y-2.5 pt-2 text-white">
+              <a
+                href="mailto:info.themmarstv@gmail.com"
+                className="flex items-center gap-2.5 text-white hover:underline text-[13px] font-medium transition-colors"
+              >
+                <Mail className="w-4 h-4 text-white flex-shrink-0" />
+                <span>info.themmarstv@gmail.com</span>
               </a>
-              <a href="tel:+911234567890" className="flex items-center gap-2.5 text-white hover:underline text-[13px] font-medium transition-colors">
-                <Phone className="w-4 h-4 text-white" />
-                <span>+91 123 456 7890 / +91 98260 11223</span>
+
+              <a
+                href="https://wa.me/919407404623"
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-2.5 text-white hover:underline text-[13px] font-medium transition-colors group/wa"
+              >
+                <MessageCircle className="w-4 h-4 text-white group-hover/wa:text-green-300 transition-colors flex-shrink-0" />
+                <span>WhatsApp: <strong className="font-bold tracking-wide">+91 94074 04623</strong></span>
               </a>
+
+              <a
+                href="tel:+919407404623"
+                className="flex items-center gap-2.5 text-white hover:underline text-[13px] font-medium transition-colors"
+              >
+                <Phone className="w-4 h-4 text-white flex-shrink-0" />
+                <span>Call Helpline: +91 94074 04623</span>
+              </a>
+
               <div className="flex items-start gap-2.5 text-white text-[13px] font-medium">
                 <MapPin className="w-4 h-4 text-white flex-shrink-0 mt-0.5" />
                 <span>101-104 The Mars TV Tower, Vijay Nagar Square, Indore, MP 452001</span>

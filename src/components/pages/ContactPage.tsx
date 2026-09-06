@@ -69,12 +69,14 @@ export default function ContactPage({ onSubmitLead }: ContactPageProps) {
                 </div>
                 <div>
                   <h3 className="text-[16px] font-bold text-[#222222]" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                    Phone Helpline
+                    Helpline &amp; WhatsApp
                   </h3>
-                  <p className="text-[13.5px] text-gray-600 mt-1 font-semibold">
-                    +91 123 456 7890 / +91 98260 11223
+                  <p className="text-[13.5px] text-gray-800 mt-1 font-semibold">
+                    <a href="https://wa.me/919407404623" target="_blank" rel="noreferrer" className="text-[#D61F26] hover:underline">
+                      +91 94074 04623
+                    </a>
                   </p>
-                  <span className="text-[11.5px] text-gray-400">Mon - Sun: 9:00 AM - 8:00 PM</span>
+                  <span className="text-[11.5px] text-gray-400">Mon - Sun: 9:00 AM - 8:00 PM • Instant WhatsApp Support</span>
                 </div>
               </div>
 
@@ -84,10 +86,12 @@ export default function ContactPage({ onSubmitLead }: ContactPageProps) {
                 </div>
                 <div>
                   <h3 className="text-[16px] font-bold text-[#222222]" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                    Email Support
+                    Official Email
                   </h3>
-                  <p className="text-[13.5px] text-gray-600 mt-1 font-medium">
-                    support@themarstv.in / leads@themarstv.in
+                  <p className="text-[13.5px] text-gray-800 mt-1 font-medium">
+                    <a href="mailto:info.themmarstv@gmail.com" className="text-[#D61F26] hover:underline">
+                      info.themmarstv@gmail.com
+                    </a>
                   </p>
                 </div>
               </div>
