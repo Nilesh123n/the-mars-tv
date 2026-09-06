@@ -288,6 +288,7 @@ export default function ListPropertyModal({
       priceLabel,
       location: `${locality ? `${locality}, ` : ''}${selectedCity}`,
       city: selectedCity,
+      region: locationRegion,
       locality: locality || 'Prime Zone',
       address: address || `${locality}, ${selectedCity}`,
       pincode: pincode || '452010',

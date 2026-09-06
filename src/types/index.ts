@@ -15,6 +15,7 @@ export interface Property {
   priceLabel: string;
   location: string;
   city: string;
+  region?: 'India' | 'International';
   area: number;
   areaUnit?: string;
   bedrooms?: number;

@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS public.properties (
     price_label TEXT,
     location TEXT,
     city TEXT DEFAULT 'Indore',
+    region TEXT DEFAULT 'India',
     locality TEXT,
     address TEXT,
     pincode TEXT,
@@ -80,7 +81,12 @@ ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS contact_phone TEXT;
 ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS contact_email TEXT;
 ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS agency_name TEXT;
 ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS is_phone_verified BOOLEAN DEFAULT FALSE;
+ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS region TEXT DEFAULT 'India';
 ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
+-- Indexes for ultra-fast filtering by City and Region (Indian / International)
+CREATE INDEX IF NOT EXISTS idx_properties_region ON public.properties(region);
+CREATE INDEX IF NOT EXISTS idx_properties_city ON public.properties(city);
 
 -- -------------------------------------------------------------------------
 -- 2. NEWS ITEMS TABLE (Real Estate News, Policy Updates & Market Trends)
