@@ -271,16 +271,33 @@ export const INDIA_LOCATION_DATA: StateRegionItem[] = [
 
 export const INTERNATIONAL_LOCATION_DATA: StateRegionItem[] = [
   {
-    id: 'uae-middle-east',
-    name: 'United Arab Emirates & Gulf',
+    id: 'uae-emirates',
+    name: 'United Arab Emirates (UAE)',
     region: 'International',
     flag: '🇦🇪',
     cities: [
-      { id: 'dubai', name: 'Dubai', subtitle: 'Downtown, Palm Jumeirah & Marina', keywords: ['dubai', 'uae', 'palm jumeirah', 'downtown dubai', 'business bay', 'dubai marina'] },
-      { id: 'abu-dhabi', name: 'Abu Dhabi', subtitle: 'Capital & Saadiyat Island', keywords: ['abu dhabi', 'saadiyat', 'yas island', 'uae'] },
-      { id: 'sharjah', name: 'Sharjah', subtitle: 'Cultural & Freezone Hub', keywords: ['sharjah', 'al majaz', 'uae'] },
-      { id: 'riyadh', name: 'Riyadh (Saudi Arabia)', subtitle: 'Kingdom Capital', keywords: ['riyadh', 'saudi arabia', 'middle east'] },
-      { id: 'doha', name: 'Doha (Qatar)', subtitle: 'Lusail & West Bay', keywords: ['doha', 'qatar', 'west bay', 'lusail'] },
+      { id: 'dubai', name: 'Dubai', subtitle: 'Downtown, Palm Jumeirah, Marina & Business Bay', keywords: ['dubai', 'uae', 'palm jumeirah', 'downtown dubai', 'business bay', 'dubai marina', 'jvc', 'dubai hills'] },
+      { id: 'abu-dhabi', name: 'Abu Dhabi', subtitle: 'Capital, Saadiyat Island & Yas Island', keywords: ['abu dhabi', 'saadiyat', 'yas island', 'al reem', 'uae'] },
+      { id: 'sharjah', name: 'Sharjah', subtitle: 'Cultural & Freezone Hub (Al Majaz, Muwaileh)', keywords: ['sharjah', 'al majaz', 'muwaileh', 'al nahda', 'uae'] },
+      { id: 'ajman', name: 'Ajman', subtitle: 'Corniche, Downtown & Al Nuaimiya', keywords: ['ajman', 'ajman corniche', 'al nuaimiya', 'uae'] },
+      { id: 'ras-al-khaimah', name: 'Ras Al Khaimah (RAK)', subtitle: 'Al Marjan Island & Mina Al Arab', keywords: ['ras al khaimah', 'rak', 'al marjan', 'mina al arab', 'uae'] },
+      { id: 'fujairah', name: 'Fujairah', subtitle: 'East Coast Port City & Scenic Resorts', keywords: ['fujairah', 'dibba', 'uae'] },
+      { id: 'umm-al-quwain', name: 'Umm Al Quwain (UAQ)', subtitle: 'UAQ Marina & Coastal Living', keywords: ['umm al quwain', 'uaq', 'al salamah', 'uae'] },
+      { id: 'al-ain', name: 'Al Ain', subtitle: 'Garden City (Abu Dhabi Region)', keywords: ['al ain', 'al-ain', 'uae'] },
+    ],
+  },
+  {
+    id: 'gulf-middle-east',
+    name: 'Gulf & Middle East (GCC)',
+    region: 'International',
+    flag: '🇸🇦',
+    cities: [
+      { id: 'riyadh', name: 'Riyadh (Saudi Arabia)', subtitle: 'Kingdom Capital & Financial District', keywords: ['riyadh', 'saudi arabia', 'middle east', 'ksa'] },
+      { id: 'jeddah', name: 'Jeddah (Saudi Arabia)', subtitle: 'Red Sea Commercial & Coastal Hub', keywords: ['jeddah', 'saudi arabia', 'red sea', 'ksa'] },
+      { id: 'doha', name: 'Doha (Qatar)', subtitle: 'Lusail, The Pearl & West Bay', keywords: ['doha', 'qatar', 'west bay', 'lusail', 'the pearl'] },
+      { id: 'muscat', name: 'Muscat (Oman)', subtitle: 'Sultanate Capital & Coastal Luxury', keywords: ['muscat', 'oman', 'middle east'] },
+      { id: 'manama', name: 'Manama (Bahrain)', subtitle: 'Bahrain Financial Harbour', keywords: ['manama', 'bahrain', 'middle east'] },
+      { id: 'kuwait-city', name: 'Kuwait City (Kuwait)', subtitle: 'Commercial & Coastal Waterfront', keywords: ['kuwait', 'kuwait city', 'middle east'] },
     ],
   },
   {

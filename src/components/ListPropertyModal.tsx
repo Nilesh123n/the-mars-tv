@@ -4,6 +4,7 @@ import {
   PlusCircle,
   Building2,
   MapPin,
+  Globe,
   CheckCircle2,
   ShieldCheck,
   Upload,
@@ -19,6 +20,7 @@ import {
   Star,
 } from 'lucide-react';
 import { Property, PropertyType, ListingType, PropertyStatus, UserRole } from '../types';
+import { INDIA_LOCATION_DATA, INTERNATIONAL_LOCATION_DATA } from '../data/locationHierarchy';
 
 interface ListPropertyModalProps {
   onClose: () => void;
@@ -64,12 +66,24 @@ export default function ListPropertyModal({
   const [propertyType, setPropertyType] = useState<PropertyType>('APARTMENT');
   const [subCategory, setSubCategory] = useState('Luxury Apartment');
 
-  // 3. Location Details
+  // 3. Location Details (Indian vs International Selection)
+  const [locationRegion, setLocationRegion] = useState<'India' | 'International'>('India');
   const [selectedCity, setSelectedCity] = useState('Indore');
   const [locality, setLocality] = useState('');
   const [address, setAddress] = useState('');
   const [pincode, setPincode] = useState('');
   const [coordinates, setCoordinates] = useState('22.7196° N, 75.8577° E (Central Prime)');
+
+  const handleRegionChange = (newRegion: 'India' | 'International') => {
+    setLocationRegion(newRegion);
+    if (newRegion === 'India') {
+      setSelectedCity('Indore');
+      setCoordinates('22.7196° N, 75.8577° E (Central Prime)');
+    } else {
+      setSelectedCity('Dubai');
+      setCoordinates('25.2048° N, 55.2708° E (Downtown Dubai)');
+    }
+  };
 
   // 4. Specifications & Pricing
   const [configuration, setConfiguration] = useState('3 BHK');
@@ -613,53 +627,69 @@ export default function ListPropertyModal({
                   <span className="text-[11px] font-semibold text-gray-400">Step 3 of 8</span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {/* City Hierarchical Dropdown */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* 1. Region Selection (Indian vs International) */}
                   <div>
-                    <label className="block text-[11.5px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                      Target City <span className="text-[#D61F26]">*</span>
+                    <label className="block text-[11.5px] font-bold text-gray-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <Globe className="w-3.5 h-3.5 text-[#D61F26]" />
+                        Market Region <span className="text-[#D61F26]">*</span>
+                      </span>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-[#D61F26] bg-red-50">
+                        {locationRegion === 'India' ? '🇮🇳 India' : '🌐 Global'}
+                      </span>
+                    </label>
+                    <select
+                      value={locationRegion}
+                      onChange={(e) => handleRegionChange(e.target.value as 'India' | 'International')}
+                      className="w-full border-2 border-gray-200 rounded-xl px-3 py-2.5 text-[13px] font-bold focus:outline-none focus:border-[#D61F26] bg-white cursor-pointer hover:border-gray-300 transition-colors"
+                    >
+                      <option value="India">🇮🇳 Indian (India Market)</option>
+                      <option value="International">🌐 International (UAE & Global)</option>
+                    </select>
+                  </div>
+
+                  {/* 2. Target City (Filtered dynamically by Region) */}
+                  <div>
+                    <label className="block text-[11.5px] font-bold text-gray-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <MapPin className="w-3.5 h-3.5 text-[#D61F26]" />
+                        Target City <span className="text-[#D61F26]">*</span>
+                      </span>
+                      <span className="text-[10px] text-gray-500 font-semibold">
+                        {locationRegion === 'India' ? 'Indian Cities Only' : 'UAE & Global Cities'}
+                      </span>
                     </label>
                     <select
                       value={selectedCity}
                       onChange={(e) => setSelectedCity(e.target.value)}
-                      className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-[13.5px] font-semibold focus:outline-none focus:border-[#D61F26] bg-white cursor-pointer"
+                      className="w-full border-2 border-gray-200 rounded-xl px-3 py-2.5 text-[13px] font-semibold focus:outline-none focus:border-[#D61F26] bg-white cursor-pointer hover:border-gray-300 transition-colors"
                     >
-                      <optgroup label="🇮🇳 Central & West India">
-                        <option value="Indore">Indore (Madhya Pradesh)</option>
-                        <option value="Bhopal">Bhopal (Madhya Pradesh)</option>
-                        <option value="Ujjain">Ujjain (Madhya Pradesh)</option>
-                        <option value="Gwalior">Gwalior (Madhya Pradesh)</option>
-                        <option value="Jabalpur">Jabalpur (Madhya Pradesh)</option>
-                        <option value="Mumbai">Mumbai (Maharashtra)</option>
-                        <option value="Pune">Pune (Maharashtra)</option>
-                        <option value="Ahmedabad">Ahmedabad (Gujarat)</option>
-                        <option value="Surat">Surat (Gujarat)</option>
-                        <option value="Jaipur">Jaipur (Rajasthan)</option>
-                      </optgroup>
-                      <optgroup label="🇮🇳 North & South Hubs">
-                        <option value="Delhi NCR">Delhi NCR / Gurgaon / Noida</option>
-                        <option value="Bengaluru">Bengaluru (Karnataka)</option>
-                        <option value="Hyderabad">Hyderabad (Telangana)</option>
-                        <option value="Chennai">Chennai (Tamil Nadu)</option>
-                        <option value="Kolkata">Kolkata (West Bengal)</option>
-                        <option value="Lucknow">Lucknow (Uttar Pradesh)</option>
-                        <option value="Chandigarh">Chandigarh (Punjab & Haryana)</option>
-                        <option value="Kochi">Kochi (Kerala)</option>
-                        <option value="Goa">Goa (Coastal Hub)</option>
-                      </optgroup>
-                      <optgroup label="🌐 International Real Estate">
-                        <option value="Dubai">Dubai (UAE)</option>
-                        <option value="Abu Dhabi">Abu Dhabi (UAE)</option>
-                        <option value="London">London (United Kingdom)</option>
-                        <option value="New York">New York (USA)</option>
-                        <option value="Singapore">Singapore</option>
-                        <option value="Toronto">Toronto (Canada)</option>
-                        <option value="Sydney">Sydney (Australia)</option>
-                      </optgroup>
+                      {locationRegion === 'India' ? (
+                        INDIA_LOCATION_DATA.map((state) => (
+                          <optgroup key={state.id} label={`🇮🇳 ${state.name}`}>
+                            {state.cities.map((city) => (
+                              <option key={city.id} value={city.name}>
+                                {city.name} {city.subtitle ? `— ${city.subtitle}` : ''}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ))
+                      ) : (
+                        INTERNATIONAL_LOCATION_DATA.map((group) => (
+                          <optgroup key={group.id} label={`${group.flag || '🌐'} ${group.name}`}>
+                            {group.cities.map((city) => (
+                              <option key={city.id} value={city.name}>
+                                {city.name} {city.subtitle ? `— ${city.subtitle}` : ''}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ))
+                      )}
                     </select>
                   </div>
 
-                  {/* Locality */}
+                  {/* 3. Locality */}
                   <div>
                     <label className="block text-[11.5px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">
                       Locality / Sector / Road <span className="text-[#D61F26]">*</span>
@@ -669,22 +699,27 @@ export default function ListPropertyModal({
                       required
                       value={locality}
                       onChange={(e) => setLocality(e.target.value)}
-                      placeholder="e.g. Vijay Nagar / Super Corridor"
+                      placeholder={
+                        locationRegion === 'India'
+                          ? 'e.g. Vijay Nagar / Super Corridor'
+                          : 'e.g. Downtown / Palm Jumeirah / Marina'
+                      }
                       className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-[13.5px] focus:outline-none focus:border-[#D61F26]"
                     />
                   </div>
 
-                  {/* Pincode */}
+                  {/* 4. Pincode / Postal Code */}
                   <div>
                     <label className="block text-[11.5px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                      Pincode / Postal Code <span className="text-[#D61F26]">*</span>
+                      {locationRegion === 'India' ? 'Pincode / Postal Code' : 'Postal Code / PO Box'}{' '}
+                      <span className="text-[#D61F26]">*</span>
                     </label>
                     <input
                       type="text"
                       required
                       value={pincode}
                       onChange={(e) => setPincode(e.target.value)}
-                      placeholder="e.g. 452010"
+                      placeholder={locationRegion === 'India' ? 'e.g. 452010' : 'e.g. PO Box 00000'}
                       className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-[13.5px] focus:outline-none focus:border-[#D61F26]"
                     />
                   </div>

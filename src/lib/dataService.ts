@@ -365,6 +365,12 @@ export class DataService {
             } else if (e.key === 'pr_site_settings_v2') {
               memoryCache.siteSettings = parsed;
               syncListeners.forEach((fn) => fn('SETTINGS_SAVED', { siteSettings: parsed.data }));
+            }
+          }
+        } catch (err) {}
+      }
+    });
+
     // 4. Server-Sent Events (SSE) for Real-Time Cross-Device Sync (Mobile <-> Desktop)
     // Note: Ye sirf tab kaam karta hai jab server.ts (Express backend) actually chal raha ho.
     // Static hosting (jahan sirf built dist serve hoti hai) pe /api/sync/events 404 dega —
@@ -413,11 +419,7 @@ export class DataService {
       }
     }
 
-    connectSSE();            }
-          }
-        } catch (err) {}
-      }
-    });
+    connectSSE();
 
 
 
