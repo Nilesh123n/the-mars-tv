@@ -530,8 +530,11 @@ export default function AdminSecretPage({
       status: 'ACTIVE',
       isSponsored: false,
       isFeatured: true,
+      isExclusive: true,
       isVerified: true,
       isReraReg: true,
+      projectType: (propType === 'OFFICE' || listType === 'COMMERCIAL') ? 'COMMERCIAL' : 'EXCLUSIVE',
+      builder: 'The Mars TV Exclusive',
       reraNumber: 'P-IND-24-9999',
       images: [
         {
@@ -1502,6 +1505,11 @@ export default function AdminSecretPage({
                                 Featured
                               </span>
                             )}
+                            {property.isExclusive && (
+                              <span className="bg-red-100 text-[#D61F26] font-bold px-2 py-0.5 rounded">
+                                Exclusive Project
+                              </span>
+                            )}
                             {property.isVerified && (
                               <span className="bg-green-100 text-green-800 font-bold px-2 py-0.5 rounded">
                                 Verified
@@ -1961,27 +1969,35 @@ export default function AdminSecretPage({
                     className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
                   >
                     <div>
-                      <div className="relative h-44 bg-gray-100 overflow-hidden">
+                      {/* 16:9 Image Box - Seamlessly fitted into card without black/gray space */}
+                      <div className="relative w-full aspect-[16/9] overflow-hidden">
                         <img
                           src={item.image}
                           alt={item.title}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover object-center"
                         />
-                        <div className="absolute top-2 left-2 flex gap-1.5">
-                          <span className="bg-[#D61F26] text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded shadow">
+                      </div>
+
+                      <div className="p-4">
+                        {/* Badges Shifted Below Image (No text on image) */}
+                        <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
+                          <span className="bg-[#D61F26] text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded shadow-xs">
                             {item.category}
                           </span>
                           <span
-                            className={`text-[10px] font-extrabold px-2 py-0.5 rounded text-white shadow ${
+                            className={`text-[10px] font-extrabold px-2 py-0.5 rounded text-white shadow-xs ${
                               item.region === 'International' ? 'bg-blue-600' : 'bg-emerald-600'
                             }`}
                           >
                             {item.region === 'International' ? '🌐 International' : '🇮🇳 India'}
                           </span>
+                          {item.city && (
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-gray-100 text-gray-700 border border-gray-200">
+                              📍 {item.city}
+                            </span>
+                          )}
                         </div>
-                      </div>
 
-                      <div className="p-4">
                         <div className="flex items-center justify-between text-[11px] text-gray-500 mb-1.5">
                           <span>{new Date(item.publishedAt).toLocaleDateString()}</span>
                           <span className="font-bold text-gray-700">{item.author}</span>
@@ -3172,7 +3188,7 @@ export default function AdminSecretPage({
                 />
               </div>
 
-              <div className="flex flex-wrap gap-6 pt-2">
+              <div className="flex flex-wrap gap-4 pt-2">
                 <label className="flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer">
                   <input
                     type="checkbox"
@@ -3183,6 +3199,18 @@ export default function AdminSecretPage({
                     className="w-4 h-4 rounded text-[#D61F26]"
                   />
                   <span>Featured Property</span>
+                </label>
+
+                <label className="flex items-center gap-2 text-xs font-bold text-[#D61F26] cursor-pointer bg-red-50 px-2.5 py-1 rounded-lg border border-red-200">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(editingProperty.isExclusive)}
+                    onChange={(e) =>
+                      setEditingProperty({ ...editingProperty, isExclusive: e.target.checked })
+                    }
+                    className="w-4 h-4 rounded text-[#D61F26]"
+                  />
+                  <span>Exclusive Project (Show in FEATURED &amp; EXCLUSIVE PROJECTS)</span>
                 </label>
 
                 <label className="flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer">
@@ -3434,19 +3462,88 @@ export default function AdminSecretPage({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-600 uppercase mb-1">
-                  Cover Image URL or Upload
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-gray-700 uppercase">
+                    Article Cover Image (16:9 Aspect Ratio)
+                  </label>
+                  <span className="text-[10.5px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                    16:9 Aspect Ratio (e.g. 1920×1080 / 1280×720)
+                  </span>
+                </div>
+
+                {/* 16:9 Upload & Full Edge-to-Edge Preview Container */}
+                <div className="w-full aspect-[16/9] rounded-2xl border-2 border-dashed border-gray-300 hover:border-[#D61F26] overflow-hidden relative flex flex-col items-center justify-center transition-all mb-3 group bg-gray-50">
+                  {editingNews.image ? (
+                    <>
+                      {/* Crisp edge-to-edge 16:9 image without black/gray space */}
+                      <img
+                        src={editingNews.image}
+                        alt="News preview"
+                        className="w-full h-full object-cover object-center"
+                      />
+                      {/* Control buttons on bottom right (never obscuring image) */}
+                      <div className="absolute bottom-3 right-3 z-20 flex items-center gap-2">
+                        <label className="px-3 py-1.5 bg-black/80 hover:bg-black text-white text-xs font-bold rounded-xl cursor-pointer shadow-lg backdrop-blur-md flex items-center gap-1.5 transition-all">
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>Replace</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) =>
+                              handleImageFileUpload(e, (url) => {
+                                setEditingNews({ ...editingNews, image: url });
+                              })
+                            }
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setEditingNews({ ...editingNews, image: '' })}
+                          className="px-2.5 py-1.5 bg-red-600/90 hover:bg-red-700 text-white text-xs font-bold rounded-xl cursor-pointer shadow-lg transition-all"
+                          title="Remove image"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer p-6 text-center hover:bg-gray-100/80 transition-colors">
+                      <div className="w-14 h-14 rounded-2xl bg-white border border-gray-200 flex items-center justify-center text-gray-500 group-hover:text-white group-hover:bg-[#D61F26] transition-all mb-3 shadow-xs">
+                        <Upload className="w-6 h-6" />
+                      </div>
+                      <span className="text-sm font-bold text-gray-800 group-hover:text-[#D61F26]">
+                        Click or Drag to Upload 16:9 Article Image
+                      </span>
+                      <span className="text-xs text-gray-500 mt-1">
+                        Fills card cleanly • Recommended: 1280×720 or 1920×1080 (PNG, JPG, WebP)
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) =>
+                          handleImageFileUpload(e, (url) => {
+                            setEditingNews({ ...editingNews, image: url });
+                          })
+                        }
+                      />
+                    </label>
+                  )}
+                </div>
+
+                {/* Direct Image URL input */}
                 <div className="flex gap-2 items-center">
                   <input
                     type="text"
+                    placeholder="Or paste direct image URL (https://...)"
                     value={editingNews.image}
                     onChange={(e) => setEditingNews({ ...editingNews, image: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3.5 py-2 text-sm text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                    className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3.5 py-2 text-xs text-gray-900 focus:outline-none focus:border-[#D61F26]"
                   />
-                  <label className="px-3 py-2 bg-gray-800 text-white text-xs font-bold rounded-xl cursor-pointer hover:bg-black shrink-0 flex items-center gap-1">
+                  <label className="px-3 py-2 bg-gray-800 text-white text-xs font-bold rounded-xl cursor-pointer hover:bg-black shrink-0 flex items-center gap-1.5">
                     <Upload className="w-3.5 h-3.5" />
-                    <span>Upload</span>
+                    <span>Upload File</span>
                     <input
                       type="file"
                       accept="image/*"

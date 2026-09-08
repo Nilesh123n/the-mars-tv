@@ -313,8 +313,18 @@ export default function App() {
 
             <ExclusiveProjects
               projects={projects}
+              properties={properties}
+              onSelectProperty={(prop) => {
+                setSelectedProperty(prop);
+                showToast(`Viewing ${prop.title}`);
+              }}
               onSelectProject={(proj) => {
                 showToast(`Viewing ${proj.title}`);
+                const existingProp = properties.find((p) => p.id === proj.id);
+                if (existingProp) {
+                  setSelectedProperty(existingProp);
+                  return;
+                }
                 setSelectedProperty({
                   id: proj.id,
                   title: proj.title,
@@ -330,6 +340,7 @@ export default function App() {
                   status: 'ACTIVE',
                   isSponsored: true,
                   isFeatured: true,
+                  isExclusive: true,
                   isVerified: true,
                   isReraReg: true,
                   reraNumber: proj.reraNumber,

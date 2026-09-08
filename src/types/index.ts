@@ -26,9 +26,12 @@ export interface Property {
   status: PropertyStatus;
   isSponsored: boolean;
   isFeatured: boolean;
+  isExclusive?: boolean;
   isVerified: boolean;
   isReraReg: boolean;
   reraNumber?: string;
+  projectType?: ProjectType;
+  builder?: string;
   images: { url: string; alt?: string; isPrimary?: boolean }[];
   amenities: string[];
   lat?: number;
@@ -89,6 +92,9 @@ export interface NewsItem {
   content: string;
   category: string;
   region?: 'India' | 'International';
+  state?: string;
+  city?: string;
+  location?: string;
   image: string;
   author: string;
   publishedAt: string;

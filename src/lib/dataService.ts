@@ -861,6 +861,61 @@ export class DataService {
     memoryCache.properties = { data: localUpdated, timestamp: Date.now() };
     saveToStorage('pr_properties_v2', localUpdated);
     
+    // If property is marked as exclusive or featured, also sync to projects cache so it shows in Exclusive Projects
+    if (property.isExclusive || property.isFeatured) {
+      try {
+        const isCommercial =
+          property.projectType === 'COMMERCIAL' ||
+          property.listingType === 'COMMERCIAL' ||
+          property.propertyType === 'OFFICE' ||
+          property.propertyType === 'RETAIL' ||
+          property.propertyType === 'WAREHOUSE';
+
+        const projItem: Project = {
+          id: property.id,
+          title: property.title,
+          slug: property.slug || property.id,
+          description: property.description,
+          builder: property.builder || property.agencyName || property.contactName || 'The Mars TV Exclusive',
+          price: property.price,
+          priceLabel: property.priceLabel || (property.price ? `₹${(property.price / 100000).toFixed(2)} Lac` : 'Price on Request'),
+          location: property.location,
+          city: property.city || 'Indore',
+          projectType: property.isExclusive ? 'EXCLUSIVE' : (isCommercial ? 'COMMERCIAL' : 'RESIDENTIAL'),
+          status: property.status || 'ACTIVE',
+          possession: property.possessionDate || (property.possessionStatus === 'READY_TO_MOVE' ? 'Ready to Move' : 'Under Construction') || 'Ready to Move',
+          reraNumber: property.reraNumber,
+          configurations: [
+            property.configuration || (property.bedrooms ? `${property.bedrooms} BHK ${property.propertyType}` : `${property.area} ${property.areaUnit || 'sq.ft'}`),
+            `${property.area} ${property.areaUnit || 'sq.ft'}`
+          ],
+          amenities: property.amenities?.length ? property.amenities : ['24/7 Security', 'Power Backup', 'Prime Location'],
+          image: property.images?.[0]?.url || 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200&q=80',
+          isExclusive: Boolean(property.isExclusive || property.isFeatured),
+          isFeatured: Boolean(property.isFeatured),
+          createdAt: property.createdAt || new Date().toISOString(),
+        };
+
+        const currentProj = memoryCache.projects?.data || readFromStorage<Project[]>('pr_projects_v2')?.data || initialProjects;
+        const pIdx = currentProj.findIndex((p) => p.id === projItem.id);
+        let updatedProj: Project[];
+        if (pIdx >= 0) {
+          updatedProj = [...currentProj];
+          updatedProj[pIdx] = projItem;
+        } else {
+          updatedProj = [projItem, ...currentProj];
+        }
+        memoryCache.projects = { data: updatedProj, timestamp: Date.now() };
+        saveToStorage('pr_projects_v2', updatedProj);
+        this.broadcastLocal('PROJECT_SAVED', { project: projItem, allProjects: updatedProj });
+        syncListeners.forEach((fn) => {
+          try { fn('PROJECT_SAVED', { project: projItem, allProjects: updatedProj }); } catch(e){}
+        });
+      } catch (err) {
+        console.warn('Sync property to projects failed:', err);
+      }
+    }
+
     // Same-tab listeners ko turant notify karo
     this.broadcastLocal('PROPERTY_SAVED', { 
       property, 
@@ -1039,6 +1094,20 @@ export class DataService {
     memoryCache.properties = { data: updated, timestamp: Date.now() };
     saveToStorage('pr_properties_v2', updated);
     this.broadcastLocal('PROPERTY_DELETED', { id, allProperties: updated });
+
+    // Also remove from projects cache if exists
+    try {
+      const currentProj = memoryCache.projects?.data || readFromStorage<Project[]>('pr_projects_v2')?.data;
+      if (currentProj) {
+        const updatedProj = currentProj.filter((p) => p.id !== id);
+        memoryCache.projects = { data: updatedProj, timestamp: Date.now() };
+        saveToStorage('pr_projects_v2', updatedProj);
+        this.broadcastLocal('PROJECT_DELETED', { id, allProjects: updatedProj });
+        syncListeners.forEach((fn) => {
+          try { fn('PROJECT_DELETED', { id, allProjects: updatedProj }); } catch (e) {}
+        });
+      }
+    } catch (e) {}
 
     syncListeners.forEach((fn) => {
       try {

@@ -269,44 +269,50 @@ export default function NewsPage({
                     onClick={() => onSelectNews(item)}
                     className="bg-white rounded-[20px] overflow-hidden border border-gray-200/90 shadow-[0_4px_20px_rgba(0,0,0,0.05)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.12)] hover:-translate-y-0.5 transition-all duration-300 flex flex-col sm:flex-row group cursor-pointer"
                   >
-                    {/* Left Side: Image Box with Region Badge */}
-                    <div className="relative w-full sm:w-[280px] md:w-[340px] lg:w-[380px] shrink-0 h-[220px] sm:h-auto min-h-[200px] overflow-hidden bg-gray-100">
+                    {/* Left Side: 16:9 Image Box - Seamlessly fitted into card without black/gray space */}
+                    <div className="relative w-full sm:w-[340px] md:w-[380px] lg:w-[420px] shrink-0 aspect-[16/9] overflow-hidden">
                       <img
                         src={item.image}
                         alt={item.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
                       />
-
-                      <div className="absolute top-3 left-3 flex flex-wrap items-center gap-1.5 z-10">
-                        <span
-                          className={`text-white text-[11px] font-extrabold px-3 py-1 rounded-md uppercase tracking-wider shadow-md flex items-center gap-1.5 ${
-                            isInternational ? 'bg-blue-600' : 'bg-[#D61F26]'
-                          }`}
-                        >
-                          {isInternational ? (
-                            <>
-                              <Globe className="w-3.5 h-3.5" />
-                              <span>🌐 International News</span>
-                            </>
-                          ) : (
-                            <>
-                              <Landmark className="w-3.5 h-3.5" />
-                              <span>🇮🇳 India News</span>
-                            </>
-                          )}
-                        </span>
-                      </div>
-
-                      <div className="absolute bottom-3 left-3 z-10">
-                        <span className="bg-black/75 backdrop-blur-md text-white text-[10px] font-bold px-2.5 py-1 rounded-md tracking-wider border border-white/20">
-                          {item.category}
-                        </span>
-                      </div>
                     </div>
 
                     {/* Right Side: News Details */}
                     <div className="p-6 md:p-7 flex-1 flex flex-col justify-between">
                       <div>
+                        {/* Badges Shifted Below/Beside Image (No Text on Image) */}
+                        <div className="flex flex-wrap items-center gap-2 mb-3">
+                          <span
+                            className={`text-[11px] font-extrabold px-3 py-1 rounded-md uppercase tracking-wider text-white flex items-center gap-1.5 shadow-sm ${
+                              isInternational ? 'bg-blue-600' : 'bg-[#D61F26]'
+                            }`}
+                          >
+                            {isInternational ? (
+                              <>
+                                <Globe className="w-3.5 h-3.5" />
+                                <span>🌐 International News</span>
+                              </>
+                            ) : (
+                              <>
+                                <Landmark className="w-3.5 h-3.5" />
+                                <span>🇮🇳 India News</span>
+                              </>
+                            )}
+                          </span>
+
+                          <span className="bg-gray-100 text-gray-800 text-[11px] font-bold px-2.5 py-1 rounded-md border border-gray-200">
+                            {item.category}
+                          </span>
+
+                          {item.city && (
+                            <span className="flex items-center gap-1 bg-gray-50 text-gray-700 text-[11px] font-semibold px-2.5 py-1 rounded-md border border-gray-200">
+                              <MapPin className="w-3 h-3 text-[#D61F26]" />
+                              <span>{item.city}</span>
+                            </span>
+                          )}
+                        </div>
+
                         <div className="flex flex-wrap items-center gap-4 text-[12.5px] text-gray-500 mb-3 font-medium">
                           <span className="flex items-center gap-1.5 text-gray-600">
                             <Clock className="w-3.5 h-3.5 text-[#D61F26]" />

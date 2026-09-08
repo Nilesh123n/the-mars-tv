@@ -57,9 +57,36 @@ export default function NewsDetailModal({ news, onClose }: NewsDetailModalProps)
             </div>
           </div>
 
-          {/* Hero Banner Image */}
-          <div className="h-[280px] sm:h-[380px] rounded-[20px] overflow-hidden bg-gray-100 shadow-md">
-            <img src={news.image} alt={news.title} className="w-full h-full object-cover" />
+          {/* Meta Badges */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={`text-[11px] font-extrabold px-3 py-1 rounded-md uppercase tracking-wider text-white shadow-sm ${
+                news.region === 'International' || news.category === 'International News'
+                  ? 'bg-blue-600'
+                  : 'bg-[#D61F26]'
+              }`}
+            >
+              {news.region === 'International' || news.category === 'International News'
+                ? '🌐 International'
+                : '🇮🇳 India'}
+            </span>
+            <span className="bg-gray-100 text-gray-800 text-[11px] font-bold px-3 py-1 rounded-md border border-gray-200">
+              {news.category}
+            </span>
+            {news.city && (
+              <span className="flex items-center gap-1 bg-gray-50 text-gray-700 text-[11px] font-semibold px-2.5 py-1 rounded-md border border-gray-200">
+                <span>📍 {news.city}</span>
+              </span>
+            )}
+          </div>
+
+          {/* Hero Banner Image - 16:9 Aspect Ratio cleanly filling banner */}
+          <div className="w-full aspect-[16/9] rounded-[20px] overflow-hidden shadow-md">
+            <img
+              src={news.image}
+              alt={news.title}
+              className="w-full h-full object-cover object-center"
+            />
           </div>
 
           {/* Excerpt Banner */}
