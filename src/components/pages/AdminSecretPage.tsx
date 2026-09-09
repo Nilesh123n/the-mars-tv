@@ -3511,15 +3511,16 @@ export default function AdminSecretPage({
       {/* EDIT / CREATE NEWS FORM MODAL                             */}
       {/* ========================================================= */}
       {editingNews && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-gray-200">
-            <div className="p-6 bg-[#111111] text-white flex items-center justify-between">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 md:p-6 overflow-hidden">
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-3xl w-full max-h-[92vh] sm:max-h-[90vh] my-auto shadow-2xl border border-gray-200 flex flex-col overflow-hidden">
+            {/* Pinned Header */}
+            <div className="px-5 py-4 sm:px-6 sm:py-4.5 bg-[#111111] text-white flex items-center justify-between shrink-0 border-b border-gray-800">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-[#D61F26] rounded-xl text-white">
+                <div className="p-2 bg-[#D61F26] rounded-xl text-white shadow-xs">
                   <Newspaper className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-base">
+                  <h3 className="font-extrabold text-base sm:text-lg text-white">
                     {isNewNews ? 'Add News Article' : 'Edit News Article'}
                   </h3>
                   <p className="text-xs text-gray-400">
@@ -3528,16 +3529,20 @@ export default function AdminSecretPage({
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setEditingNews(null)}
                 className="p-2 hover:bg-gray-800 text-gray-400 hover:text-white rounded-full transition-colors cursor-pointer"
+                title="Close"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveNews} className="p-6 space-y-4 text-gray-800">
-              <div>
-                <label className="block text-xs font-bold text-gray-600 uppercase mb-1">
+            {/* Form with Flex Column: Scrollable Body + Pinned Footer */}
+            <form onSubmit={handleSaveNews} className="flex flex-col flex-1 overflow-hidden min-h-0">
+              <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 sm:space-y-5 text-gray-800">
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 uppercase mb-1">
                   Article Title *
                 </label>
                 <input
@@ -3973,17 +3978,20 @@ export default function AdminSecretPage({
                 )}
               </div>
 
-              <div className="pt-4 border-t border-gray-200 flex items-center justify-end gap-3">
+              </div>
+
+              {/* Pinned Modal Footer */}
+              <div className="px-5 py-3.5 sm:px-6 bg-gray-50 border-t border-gray-200 flex items-center justify-end gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setEditingNews(null)}
-                  className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl"
+                  className="px-5 py-2.5 bg-gray-200/80 hover:bg-gray-300 text-gray-700 text-xs font-bold rounded-xl transition-all cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 bg-[#D61F26] hover:bg-[#B01920] text-white text-xs font-bold rounded-xl shadow-md cursor-pointer flex items-center gap-1.5"
+                  className="px-6 py-2.5 bg-[#D61F26] hover:bg-[#B01920] text-white text-xs font-bold rounded-xl shadow-md cursor-pointer flex items-center gap-1.5 transition-all"
                 >
                   <Save className="w-4 h-4" />
                   <span>Save News Article</span>
