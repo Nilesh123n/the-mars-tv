@@ -861,15 +861,31 @@ export class DataService {
     memoryCache.properties = { data: localUpdated, timestamp: Date.now() };
     saveToStorage('pr_properties_v2', localUpdated);
     
-    // If property is marked as exclusive or featured, also sync to projects cache so it shows in Exclusive Projects
-    if (property.isExclusive || property.isFeatured) {
+    // If property is marked for projects or featured, also sync to projects cache so it shows in Exclusive Projects
+    const belongsToProjectSections =
+      Boolean(property.isExclusive || property.isFeatured) ||
+      Boolean(property.displaySections?.some((s) => ['EXCLUSIVE', 'FEATURED', 'COMMERCIAL', 'RESIDENTIAL'].includes(s)));
+
+    if (belongsToProjectSections) {
       try {
         const isCommercial =
+          property.displaySections?.includes('COMMERCIAL') ||
           property.projectType === 'COMMERCIAL' ||
           property.listingType === 'COMMERCIAL' ||
           property.propertyType === 'OFFICE' ||
           property.propertyType === 'RETAIL' ||
           property.propertyType === 'WAREHOUSE';
+
+        const isExcl =
+          property.displaySections?.includes('EXCLUSIVE') ||
+          property.isExclusive ||
+          property.projectType === 'EXCLUSIVE';
+
+        const isFeat =
+          property.displaySections?.includes('FEATURED') ||
+          Boolean(property.isFeatured);
+
+        const projType = isExcl ? 'EXCLUSIVE' : isCommercial ? 'COMMERCIAL' : 'RESIDENTIAL';
 
         const projItem: Project = {
           id: property.id,
@@ -881,7 +897,7 @@ export class DataService {
           priceLabel: property.priceLabel || (property.price ? `₹${(property.price / 100000).toFixed(2)} Lac` : 'Price on Request'),
           location: property.location,
           city: property.city || 'Indore',
-          projectType: property.isExclusive ? 'EXCLUSIVE' : (isCommercial ? 'COMMERCIAL' : 'RESIDENTIAL'),
+          projectType: projType,
           status: property.status || 'ACTIVE',
           possession: property.possessionDate || (property.possessionStatus === 'READY_TO_MOVE' ? 'Ready to Move' : 'Under Construction') || 'Ready to Move',
           reraNumber: property.reraNumber,
@@ -891,8 +907,8 @@ export class DataService {
           ],
           amenities: property.amenities?.length ? property.amenities : ['24/7 Security', 'Power Backup', 'Prime Location'],
           image: property.images?.[0]?.url || 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200&q=80',
-          isExclusive: Boolean(property.isExclusive || property.isFeatured),
-          isFeatured: Boolean(property.isFeatured),
+          isExclusive: Boolean(isExcl),
+          isFeatured: Boolean(isFeat),
           createdAt: property.createdAt || new Date().toISOString(),
         };
 

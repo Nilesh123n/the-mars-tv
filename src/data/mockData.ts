@@ -956,7 +956,21 @@ export const initialNews: NewsItem[] = [
     title: 'India Urban Housing Boom: Tier-2 Cities Lead 18% Capital Growth',
     slug: 'india-urban-housing-boom-tier-2-cities-growth',
     excerpt: 'Smart city corridor developments in Indore, Bhopal, Ahmedabad, and Jaipur trigger unprecedented residential & commercial demand across India.',
-    content: '<p>National real estate surveys report an 18% year-on-year increase in property appreciation across Tier-2 Indian hubs. Increased connectivity, metro rail networks, and IT park expansions are shifting buyer interest beyond traditional metros.</p><p>Government housing subsidies, streamlined single-window clearance, and rising NRI investments have positioned Indian real estate as a top asset class for 2026.</p>',
+    content: `National real estate market surveys report an unprecedented **18% year-on-year surge** in property capital appreciation across Tier-2 Indian urban hubs. Rapidly expanding metro networks, multi-lane expressways, and high-tech industrial parks are steering both end-users and institutional capital toward emerging real estate powerhouses.
+
+### Key Growth Drivers Fueling the Boom
+The paradigm shift is backed by fundamental economic and infrastructural catalysts:
+
+- **Metro & Ring Road Connectivity:** Super Corridor in Indore, Kolar Bypass in Bhopal, and Outer Ring Roads in Jaipur have reduced inner-city transit times by **over 45%**.
+- **IT & Global Capability Hubs:** Tier-2 hubs offer Grade-A commercial spaces at **40-60% lower lease rentals** than primary metros, driving top IT conglomerates to set up large campuses.
+- **Superior Rental Yields:** Residential yields in cities like Indore and Ahmedabad currently average between **4.5% to 6.2%**, outpacing standard Tier-1 metro yields of 2.8% to 3.5%.
+
+Government initiatives such as single-window municipal approvals, streamlined digital registry services, and subsidized interest structures for green-rated developments have established Indian real estate as the leading asset class for 2026.
+
+> "The decentralization of corporate offices toward clean, high-amenity Tier-2 cities has initiated a sustainable, decade-long bull run in residential townships and integrated commercial plazas."
+
+### Strategic Outlook for Homebuyers & Investors
+Market analysts advise prospective buyers to secure properties in prime expansion corridors before upcoming quarterly revisions in circle rates and infrastructure levies take effect. High-density commercial boulevards and gated luxury villa communities continue to record the fastest booking velocity.`,
     region: 'India',
     category: 'Market Trends',
     image: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=800&q=80',
@@ -971,7 +985,20 @@ export const initialNews: NewsItem[] = [
     title: 'Global Luxury Property Markets Surge in Dubai, London & Singapore',
     slug: 'global-luxury-property-markets-surge-dubai-london-singapore',
     excerpt: 'Cross-border real estate investments hit record highs as global buyers acquire ultra-luxury penthouses and commercial towers worldwide.',
-    content: '<p>International property markets in Dubai, London, New York, and Singapore are witnessing strong capital inflows driven by institutional investors and global family offices.</p><p>High demand for sustainable green-certified office towers and waterfront residential estates continues to benchmark international real estate valuations in 2026.</p>',
+    content: `International prime property markets across **Dubai, London, New York, and Singapore** are witnessing historic capital inflows driven by institutional funds, sovereign wealth portfolios, and high-net-worth family offices.
+
+### Global Real Estate Benchmarks for 2026
+The global luxury landscape is defined by distinct regional investment trends:
+
+- **Dubai Real Estate Dominance:** Driven by 10-year Golden Visa residency programs and 0% capital gains tax, Dubai recorded a **24% annual appreciation** in waterfront mansions and branded downtown residences.
+- **London Financial District:** Demand for low-carbon, BREEAM-certified Grade-A corporate towers and Kensington heritage estates remains resilient against global economic headwinds.
+- **Singapore Wealth Sanctuary:** High institutional demand for trophy freehold bungalows and panoramic Marina Bay penthouses continues to set price benchmarks in Asia-Pacific.
+
+Sustainability and ESG certifications have emerged as the primary determinant for global portfolio acquisitions. Over **75% of institutional buyers** now mandate carbon-neutral building certifications prior to signing commercial lease agreements.
+
+> "Ultra-prime global real estate continues to serve as an indispensable hedge against global inflation and currency fluctuations for diversified investors."
+
+Cross-border transaction volume is projected to exceed **$120 Billion** by the end of 2026, with prime residential towers leading transaction values.`,
     region: 'International',
     category: 'Market Trends',
     image: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&q=80',
@@ -986,7 +1013,20 @@ export const initialNews: NewsItem[] = [
     title: 'RBI Keeps Interest Rates Unchanged – Impact on Home Loans',
     slug: 'rbi-keeps-interest-rates-unchanged-impact-home-loans',
     excerpt: 'The Reserve Bank of India has decided to keep the repo rate unchanged at 6.5%, bringing stability to home loan interest rates and buyer sentiment across India.',
-    content: '<p>The Reserve Bank of India Monetary Policy Committee has announced its decision to maintain the repo rate at 6.50% for the seventh consecutive meeting.</p><p>This decision comes as welcome news for homebuyers and real estate developers alike, providing consistency in EMI calculations and mortgage interest rates across nationalized and private banks.</p><p>Market analysts predict a surge in property inquiries in tier-1 and tier-2 cities like Indore, Bhopal, and Pune during the upcoming festive quarter.</p>',
+    content: `The **Reserve Bank of India (RBI) Monetary Policy Committee (MPC)** has officially announced its consensus decision to maintain the policy repo rate at **6.50%** for the seventh consecutive bi-monthly meeting.
+
+This benchmark policy decision brings welcome certainty and relief for millions of homebuyers, prospective mortgagors, and real estate developers across India.
+
+### What the Stable Rate Means for Homebuyers:
+- **Consistent EMI Calculations:** Borrowers with floating-rate home loans will experience no sudden upward shifts in monthly EMI obligations or tenure extensions.
+- **Predictable Borrowing Costs:** Leading commercial lenders including SBI, HDFC Bank, and ICICI Bank continue to offer attractive home loan rates starting at **8.40% to 8.75% per annum**.
+- **Developer Financing Stability:** Steady cost of capital ensures timely completion and handover of ongoing mid-income and luxury residential projects.
+
+Economic researchers predict a strong surge in housing sales during the upcoming festive quarter, particularly in tier-1 and tier-2 markets like Indore, Bhopal, Pune, and Bengaluru.
+
+> "A stable interest rate cycle provides the foundation needed for first-time homebuyers to confidently transition from renting to owning their dream home."
+
+Financial advisors recommend that homebuyers take advantage of current competitive interest rate offers and pre-approved home loan schemes to lock in favorable financing terms.`,
     region: 'India',
     category: 'Market News',
     image: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&q=80',

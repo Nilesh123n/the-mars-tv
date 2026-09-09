@@ -129,6 +129,13 @@ export function fromSupabaseRow(row: any): Property {
     isReraReg: Boolean(row.isReraReg ?? row.is_rera_reg ?? false),
     reraNumber: row.reraNumber || row.rera_number || '',
     projectType: row.projectType || row.project_type,
+    displaySections: Array.isArray(row.displaySections)
+      ? row.displaySections
+      : Array.isArray(row.display_sections)
+      ? row.display_sections
+      : typeof row.display_sections === 'string'
+      ? (() => { try { return JSON.parse(row.display_sections); } catch { return undefined; } })()
+      : undefined,
     builder: row.builder || row.agencyName || row.agency_name || '',
     approvalAuthority: row.approvalAuthority || row.approval_authority || '',
     ownershipProofDoc: row.ownershipProofDoc || row.ownership_proof_doc || '',
@@ -184,6 +191,8 @@ export function toSupabaseRow(property: Property): Record<string, any> {
     is_exclusive: Boolean(property.isExclusive),
     isExclusive: Boolean(property.isExclusive),
     project_type: property.projectType || (property.listingType === 'COMMERCIAL' ? 'COMMERCIAL' : 'RESIDENTIAL'),
+    display_sections: property.displaySections || null,
+    displaySections: property.displaySections || null,
     builder: property.builder || property.agencyName || null,
     is_verified: Boolean(property.isVerified),
     is_rera_reg: Boolean(property.isReraReg),

@@ -6,6 +6,8 @@ export type PropertyStatus = 'ACTIVE' | 'PENDING_APPROVAL' | 'SOLD' | 'RENTED' |
 
 export type UserRole = 'DEVELOPER' | 'BROKER' | 'OWNER';
 
+export type PropertySection = 'FEATURED' | 'EXCLUSIVE' | 'COMMERCIAL' | 'RESIDENTIAL' | 'SPONSORED';
+
 export interface Property {
   id: string;
   title: string;
@@ -31,6 +33,7 @@ export interface Property {
   isReraReg: boolean;
   reraNumber?: string;
   projectType?: ProjectType;
+  displaySections?: PropertySection[];
   builder?: string;
   images: { url: string; alt?: string; isPrimary?: boolean }[];
   amenities: string[];

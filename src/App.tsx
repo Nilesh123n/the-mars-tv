@@ -296,15 +296,12 @@ export default function App() {
             />
 
             <SponsoredProperties
-              properties={properties.filter((p) => p.isSponsored)}
-              wishlist={wishlist}
-              onToggleWishlist={handleToggleWishlist}
-              onSelectProperty={(p) => setSelectedProperty(p)}
-              onViewAll={() => setCurrentView('residential')}
-            />
-
-            <FeaturedProperties
-              properties={properties}
+              properties={properties.filter((p) => {
+                if (p.displaySections && p.displaySections.length > 0) {
+                  return p.displaySections.includes('SPONSORED');
+                }
+                return p.isSponsored;
+              })}
               wishlist={wishlist}
               onToggleWishlist={handleToggleWishlist}
               onSelectProperty={(p) => setSelectedProperty(p)}
@@ -314,6 +311,8 @@ export default function App() {
             <ExclusiveProjects
               projects={projects}
               properties={properties}
+              wishlist={wishlist}
+              onToggleWishlist={handleToggleWishlist}
               onSelectProperty={(prop) => {
                 setSelectedProperty(prop);
                 showToast(`Viewing ${prop.title}`);

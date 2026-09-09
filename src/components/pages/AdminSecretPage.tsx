@@ -51,9 +51,17 @@ import {
   PhoneCall,
   ExternalLink,
   Clock,
-  Sparkles
+  Sparkles,
+  Star,
+  Bold,
+  Italic,
+  Heading2,
+  List,
+  Quote,
+  Type
 } from 'lucide-react';
-import { Property, NewsItem, PRServiceItem, Lead, PropertyType, ListingType, PropertyStatus, ConstructionPackage, SiteSettings, LeadStatus } from '../../types';
+import ArticleRenderer from '../ArticleRenderer';
+import { Property, PropertySection, NewsItem, PRServiceItem, Lead, PropertyType, ListingType, PropertyStatus, ConstructionPackage, SiteSettings, LeadStatus } from '../../types';
 import { DataService } from '../../lib/dataService';
 import { isSupabaseConfigured, getSupabaseCredentials, saveSupabaseConfig } from '../../lib/supabase';
 import { useDebounce } from '../../hooks/useDebounce';
@@ -183,6 +191,7 @@ export default function AdminSecretPage({
 
   const [editingNews, setEditingNews] = useState<NewsItem | null>(null);
   const [isNewNews, setIsNewNews] = useState(false);
+  const [newsEditorTab, setNewsEditorTab] = useState<'write' | 'preview'>('write');
 
   const [editingPR, setEditingPR] = useState<PRServiceItem | null>(null);
   const [isNewPR, setIsNewPR] = useState(false);
@@ -486,7 +495,27 @@ export default function AdminSecretPage({
 
     setPropModalRegion(foundRegion);
     setPropModalStateId(foundStateId);
-    setEditingProperty({ ...prop });
+
+    const currentSections: PropertySection[] =
+      prop.displaySections && prop.displaySections.length > 0
+        ? [...prop.displaySections]
+        : [
+            ...(prop.isFeatured ? ['FEATURED' as const] : []),
+            ...(prop.isExclusive ? ['EXCLUSIVE' as const] : []),
+            ...(prop.projectType === 'COMMERCIAL' || prop.listingType === 'COMMERCIAL'
+              ? ['COMMERCIAL' as const]
+              : []),
+            ...(prop.projectType === 'RESIDENTIAL' ||
+            (prop.listingType !== 'COMMERCIAL' && !prop.isExclusive)
+              ? ['RESIDENTIAL' as const]
+              : []),
+            ...(prop.isSponsored ? ['SPONSORED' as const] : []),
+          ];
+
+    setEditingProperty({
+      ...prop,
+      displaySections: currentSections.length > 0 ? currentSections : ['FEATURED'],
+    });
     setIsNewProperty(false);
   };
 
@@ -511,6 +540,11 @@ export default function AdminSecretPage({
     setPropModalRegion('India');
     setPropModalStateId('madhya-pradesh');
 
+    const initialSections: PropertySection[] =
+      defaultType === 'COMMERCIAL' || propertyCategoryTab === 'COMMERCIAL'
+        ? ['COMMERCIAL', 'FEATURED']
+        : ['FEATURED', 'RESIDENTIAL'];
+
     const newProp: Property = {
       id: `prop-${Date.now()}`,
       title,
@@ -528,12 +562,13 @@ export default function AdminSecretPage({
       propertyType: propType,
       listingType: listType,
       status: 'ACTIVE',
-      isSponsored: false,
-      isFeatured: true,
-      isExclusive: true,
+      isSponsored: initialSections.includes('SPONSORED'),
+      isFeatured: initialSections.includes('FEATURED'),
+      isExclusive: initialSections.includes('EXCLUSIVE'),
       isVerified: true,
       isReraReg: true,
-      projectType: (propType === 'OFFICE' || listType === 'COMMERCIAL') ? 'COMMERCIAL' : 'EXCLUSIVE',
+      displaySections: initialSections,
+      projectType: (propType === 'OFFICE' || listType === 'COMMERCIAL') ? 'COMMERCIAL' : 'RESIDENTIAL',
       builder: 'The Mars TV Exclusive',
       reraNumber: 'P-IND-24-9999',
       images: [
@@ -1132,7 +1167,7 @@ export default function AdminSecretPage({
 
               {activeTab === 'properties' && (
                 <button
-                  onClick={handleCreateNewProperty}
+                  onClick={() => handleCreateNewProperty()}
                   className="px-4 py-2 bg-[#D61F26] hover:bg-[#B01920] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all shadow-md cursor-pointer whitespace-nowrap"
                 >
                   <Plus className="w-4 h-4" />
@@ -1500,19 +1535,58 @@ export default function AdminSecretPage({
                                 ✓ Live
                               </span>
                             )}
-                            {property.isFeatured && (
-                              <span className="bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded">
-                                Featured
-                              </span>
+
+                            {/* Section Badges */}
+                            {property.displaySections && property.displaySections.length > 0 ? (
+                              property.displaySections.map((sec) => (
+                                <span
+                                  key={sec}
+                                  className={`font-extrabold px-2 py-0.5 rounded uppercase tracking-wider text-[9.5px] ${
+                                    sec === 'FEATURED'
+                                      ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                                      : sec === 'EXCLUSIVE'
+                                      ? 'bg-red-100 text-[#D61F26] border border-red-300'
+                                      : sec === 'COMMERCIAL'
+                                      ? 'bg-blue-100 text-blue-900 border border-blue-300'
+                                      : sec === 'RESIDENTIAL'
+                                      ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                                      : 'bg-purple-100 text-purple-900 border border-purple-300'
+                                  }`}
+                                >
+                                  {sec === 'FEATURED'
+                                    ? '⭐ Featured'
+                                    : sec === 'EXCLUSIVE'
+                                    ? '💎 Exclusive'
+                                    : sec === 'COMMERCIAL'
+                                    ? '🏢 Commercial'
+                                    : sec === 'RESIDENTIAL'
+                                    ? '🏡 Residential'
+                                    : '🚀 Sponsored'}
+                                </span>
+                              ))
+                            ) : (
+                              <>
+                                {property.isFeatured && (
+                                  <span className="bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded">
+                                    ⭐ Featured
+                                  </span>
+                                )}
+                                {property.isExclusive && (
+                                  <span className="bg-red-100 text-[#D61F26] font-bold px-2 py-0.5 rounded">
+                                    💎 Exclusive
+                                  </span>
+                                )}
+                                {property.isSponsored && (
+                                  <span className="bg-purple-100 text-purple-800 font-bold px-2 py-0.5 rounded">
+                                    🚀 Sponsored
+                                  </span>
+                                )}
+                              </>
                             )}
-                            {property.isExclusive && (
-                              <span className="bg-red-100 text-[#D61F26] font-bold px-2 py-0.5 rounded">
-                                Exclusive Project
-                              </span>
-                            )}
+
                             {property.isVerified && (
                               <span className="bg-green-100 text-green-800 font-bold px-2 py-0.5 rounded">
-                                Verified
+                                ✓ Verified
                               </span>
                             )}
                           </div>
@@ -1696,7 +1770,15 @@ export default function AdminSecretPage({
                     </p>
                     <div className="flex items-center justify-center gap-3">
                       <button
-                        onClick={() => setApprovalLocationSelection({ region: 'ALL', stateId: null, cityId: null })}
+                        onClick={() =>
+                          setApprovalLocationSelection({
+                            region: 'ALL',
+                            stateId: null,
+                            stateName: null,
+                            cityId: null,
+                            cityName: null,
+                          })
+                        }
                         className="text-xs text-[#D61F26] font-bold hover:underline cursor-pointer"
                       >
                         Reset Location Filter
@@ -3188,54 +3270,220 @@ export default function AdminSecretPage({
                 />
               </div>
 
-              <div className="flex flex-wrap gap-4 pt-2">
-                <label className="flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={editingProperty.isFeatured}
-                    onChange={(e) =>
-                      setEditingProperty({ ...editingProperty, isFeatured: e.target.checked })
-                    }
-                    className="w-4 h-4 rounded text-[#D61F26]"
-                  />
-                  <span>Featured Property</span>
-                </label>
+              {/* SECTION-WISE VISIBILITY ASSIGNMENT (Multi-Select) */}
+              <div className="pt-4 pb-2 border-t border-gray-200">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                  <div>
+                    <label className="text-xs font-black text-gray-900 uppercase tracking-wider flex items-center gap-2">
+                      <Layers className="w-4 h-4 text-[#D61F26]" />
+                      <span>Display In Sections (Section-Wise Multi-Select)</span>
+                      <span className="text-[11px] font-bold text-[#D61F26] bg-red-50 border border-red-200 px-2.5 py-0.5 rounded-full">
+                        {editingProperty.displaySections?.length || 0} Selected
+                      </span>
+                    </label>
+                    <p className="text-[11.5px] text-gray-500 mt-0.5">
+                      Select one or more website sections where this property will appear. The property will strictly show in the chosen sections.
+                    </p>
+                  </div>
 
-                <label className="flex items-center gap-2 text-xs font-bold text-[#D61F26] cursor-pointer bg-red-50 px-2.5 py-1 rounded-lg border border-red-200">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(editingProperty.isExclusive)}
-                    onChange={(e) =>
-                      setEditingProperty({ ...editingProperty, isExclusive: e.target.checked })
-                    }
-                    className="w-4 h-4 rounded text-[#D61F26]"
-                  />
-                  <span>Exclusive Project (Show in FEATURED &amp; EXCLUSIVE PROJECTS)</span>
-                </label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allSecs: PropertySection[] = [
+                          'FEATURED',
+                          'EXCLUSIVE',
+                          'COMMERCIAL',
+                          'RESIDENTIAL',
+                          'SPONSORED',
+                        ];
+                        setEditingProperty({
+                          ...editingProperty,
+                          displaySections: allSecs,
+                          isFeatured: true,
+                          isExclusive: true,
+                          isSponsored: true,
+                        });
+                      }}
+                      className="px-2.5 py-1 text-[11px] font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors cursor-pointer"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingProperty({
+                          ...editingProperty,
+                          displaySections: [],
+                          isFeatured: false,
+                          isExclusive: false,
+                          isSponsored: false,
+                        });
+                      }}
+                      className="px-2.5 py-1 text-[11px] font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors cursor-pointer"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                </div>
 
-                <label className="flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={editingProperty.isSponsored}
-                    onChange={(e) =>
-                      setEditingProperty({ ...editingProperty, isSponsored: e.target.checked })
-                    }
-                    className="w-4 h-4 rounded text-[#D61F26]"
-                  />
-                  <span>Sponsored Banner</span>
-                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                  {[
+                    {
+                      id: 'FEATURED' as PropertySection,
+                      label: 'Featured Properties',
+                      location: 'Top of Showcase',
+                      desc: 'Shows inside FEATURED & EXCLUSIVE PROJECTS at top & in Featured tab',
+                      icon: Star,
+                      activeBorder: 'border-amber-400 bg-amber-50/70',
+                      badgeColor: 'bg-amber-100 text-amber-900',
+                    },
+                    {
+                      id: 'EXCLUSIVE' as PropertySection,
+                      label: 'Exclusive Projects',
+                      location: 'Exclusive Showcase',
+                      desc: 'Shows in Exclusive Projects subsection & exclusive projects tab',
+                      icon: Sparkles,
+                      activeBorder: 'border-red-400 bg-red-50/70',
+                      badgeColor: 'bg-red-100 text-[#D61F26]',
+                    },
+                    {
+                      id: 'COMMERCIAL' as PropertySection,
+                      label: 'Commercial Projects',
+                      location: 'Commercial Hub',
+                      desc: 'Shows in Commercial Projects subsection & commercial spaces tab',
+                      icon: Building2,
+                      activeBorder: 'border-blue-400 bg-blue-50/70',
+                      badgeColor: 'bg-blue-100 text-blue-900',
+                    },
+                    {
+                      id: 'RESIDENTIAL' as PropertySection,
+                      label: 'Residential Projects',
+                      location: 'Residential Hub',
+                      desc: 'Shows in Residential Projects subsection & residential tab',
+                      icon: Home,
+                      activeBorder: 'border-emerald-400 bg-emerald-50/70',
+                      badgeColor: 'bg-emerald-100 text-emerald-900',
+                    },
+                    {
+                      id: 'SPONSORED' as PropertySection,
+                      label: 'Sponsored Properties',
+                      location: 'Home Carousel',
+                      desc: 'Shows in Sponsored Properties / Trending picks slider on Home Page',
+                      icon: Megaphone,
+                      activeBorder: 'border-purple-400 bg-purple-50/70',
+                      badgeColor: 'bg-purple-100 text-purple-900',
+                    },
+                  ].map((sec) => {
+                    const isChecked = Boolean(
+                      editingProperty.displaySections?.includes(sec.id) ||
+                        (!editingProperty.displaySections &&
+                          ((sec.id === 'FEATURED' && editingProperty.isFeatured) ||
+                            (sec.id === 'EXCLUSIVE' && editingProperty.isExclusive) ||
+                            (sec.id === 'SPONSORED' && editingProperty.isSponsored) ||
+                            (sec.id === 'COMMERCIAL' &&
+                              (editingProperty.projectType === 'COMMERCIAL' ||
+                                editingProperty.listingType === 'COMMERCIAL')) ||
+                            (sec.id === 'RESIDENTIAL' &&
+                              editingProperty.projectType === 'RESIDENTIAL')))
+                    );
 
-                <label className="flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={editingProperty.isVerified}
-                    onChange={(e) =>
-                      setEditingProperty({ ...editingProperty, isVerified: e.target.checked })
-                    }
-                    className="w-4 h-4 rounded text-[#D61F26]"
-                  />
-                  <span>Verified Document Badge</span>
-                </label>
+                    const Icon = sec.icon;
+
+                    return (
+                      <label
+                        key={sec.id}
+                        className={`flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer select-none ${
+                          isChecked
+                            ? `${sec.activeBorder} shadow-xs font-semibold ring-1 ring-[#D61F26]/30`
+                            : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50/70 text-gray-700'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            const current = editingProperty.displaySections || [
+                              ...(editingProperty.isFeatured ? ['FEATURED' as const] : []),
+                              ...(editingProperty.isExclusive ? ['EXCLUSIVE' as const] : []),
+                              ...(editingProperty.isSponsored ? ['SPONSORED' as const] : []),
+                              ...(editingProperty.projectType === 'COMMERCIAL' ? ['COMMERCIAL' as const] : []),
+                              ...(editingProperty.projectType === 'RESIDENTIAL' ? ['RESIDENTIAL' as const] : []),
+                            ];
+                            let next: PropertySection[];
+                            if (e.target.checked) {
+                              next = Array.from(new Set([...current, sec.id]));
+                            } else {
+                              next = current.filter((s) => s !== sec.id);
+                            }
+                            setEditingProperty({
+                              ...editingProperty,
+                              displaySections: next,
+                              isFeatured: next.includes('FEATURED'),
+                              isExclusive: next.includes('EXCLUSIVE'),
+                              isSponsored: next.includes('SPONSORED'),
+                              projectType: next.includes('COMMERCIAL')
+                                ? 'COMMERCIAL'
+                                : next.includes('EXCLUSIVE')
+                                ? 'EXCLUSIVE'
+                                : next.includes('RESIDENTIAL')
+                                ? 'RESIDENTIAL'
+                                : editingProperty.projectType,
+                            });
+                          }}
+                          className="mt-0.5 w-4 h-4 rounded text-[#D61F26] focus:ring-[#D61F26]"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                            <Icon className="w-3.5 h-3.5 text-[#D61F26] shrink-0" />
+                            <span className="text-xs font-bold text-gray-900">{sec.label}</span>
+                          </div>
+                          <span
+                            className={`inline-block text-[10px] font-bold px-1.5 py-0.2 rounded mb-1 ${sec.badgeColor}`}
+                          >
+                            {sec.location}
+                          </span>
+                          <p className="text-[11px] text-gray-500 line-clamp-2 leading-snug">
+                            {sec.desc}
+                          </p>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+
+                {/* Additional Badges (Verified, RERA) */}
+                <div className="flex flex-wrap items-center gap-4 mt-3 pt-3 border-t border-gray-100">
+                  <label className="flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editingProperty.isVerified}
+                      onChange={(e) =>
+                        setEditingProperty({ ...editingProperty, isVerified: e.target.checked })
+                      }
+                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span className="flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                      Verified Document Badge
+                    </span>
+                  </label>
+
+                  <label className="flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(editingProperty.isReraReg)}
+                      onChange={(e) =>
+                        setEditingProperty({ ...editingProperty, isReraReg: e.target.checked })
+                      }
+                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span className="flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      RERA Registered Project
+                    </span>
+                  </label>
+                </div>
               </div>
 
               <div className="pt-4 border-t border-gray-200 flex items-center justify-end gap-3">
@@ -3571,15 +3819,158 @@ export default function AdminSecretPage({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-600 uppercase mb-1">
-                  Full Article Content
-                </label>
-                <textarea
-                  rows={4}
-                  value={editingNews.content}
-                  onChange={(e) => setEditingNews({ ...editingNews, content: e.target.value })}
-                  className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3.5 py-2 text-sm font-medium text-gray-900 focus:outline-none focus:border-[#D61F26]"
-                />
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-bold text-gray-700 uppercase">
+                    Full Article Content
+                  </label>
+
+                  {/* Write vs Preview Toggle */}
+                  <div className="flex items-center bg-gray-200/80 rounded-lg p-0.5 text-xs font-semibold">
+                    <button
+                      type="button"
+                      onClick={() => setNewsEditorTab('write')}
+                      className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
+                        newsEditorTab === 'write'
+                          ? 'bg-white text-[#D61F26] shadow-xs font-bold'
+                          : 'text-gray-600 hover:text-black'
+                      }`}
+                    >
+                      Write
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewsEditorTab('preview')}
+                      className={`px-3 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1 ${
+                        newsEditorTab === 'preview'
+                          ? 'bg-white text-[#D61F26] shadow-xs font-bold'
+                          : 'text-gray-600 hover:text-black'
+                      }`}
+                    >
+                      <Eye className="w-3 h-3" />
+                      <span>Live Preview</span>
+                    </button>
+                  </div>
+                </div>
+
+                {newsEditorTab === 'write' ? (
+                  <div>
+                    {/* Quick Formatting Toolbar */}
+                    <div className="flex flex-wrap items-center gap-1.5 p-2 bg-gray-100/90 border border-gray-300 rounded-t-xl border-b-0 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const val = editingNews.content || '';
+                          setEditingNews({ ...editingNews, content: val ? `${val}\n**Bold Text**` : '**Bold Text**' });
+                        }}
+                        className="px-2.5 py-1 bg-white hover:bg-gray-50 border border-gray-200 rounded-md font-bold text-gray-800 shadow-xs flex items-center gap-1 cursor-pointer"
+                        title="Add Bold Text"
+                      >
+                        <Bold className="w-3 h-3" />
+                        <span>Bold</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const val = editingNews.content || '';
+                          setEditingNews({ ...editingNews, content: val ? `${val}\n*Italic Text*` : '*Italic Text*' });
+                        }}
+                        className="px-2.5 py-1 bg-white hover:bg-gray-50 border border-gray-200 rounded-md italic text-gray-800 shadow-xs flex items-center gap-1 cursor-pointer"
+                        title="Add Italic Text"
+                      >
+                        <Italic className="w-3 h-3" />
+                        <span>Italic</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const val = editingNews.content || '';
+                          setEditingNews({ ...editingNews, content: val ? `${val}\n\n## Main Heading Title\n` : '## Main Heading Title\n' });
+                        }}
+                        className="px-2.5 py-1 bg-white hover:bg-gray-50 border border-gray-200 rounded-md font-extrabold text-gray-800 shadow-xs flex items-center gap-1 cursor-pointer"
+                        title="Add Section Heading"
+                      >
+                        <Heading2 className="w-3 h-3" />
+                        <span>H2</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const val = editingNews.content || '';
+                          setEditingNews({ ...editingNews, content: val ? `${val}\n\n### Subheading\n` : '### Subheading\n' });
+                        }}
+                        className="px-2.5 py-1 bg-white hover:bg-gray-50 border border-gray-200 rounded-md font-bold text-gray-800 shadow-xs flex items-center gap-1 cursor-pointer"
+                        title="Add Subheading"
+                      >
+                        <Type className="w-3 h-3" />
+                        <span>H3</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const val = editingNews.content || '';
+                          setEditingNews({ ...editingNews, content: val ? `${val}\n- Key Feature 1\n- Key Feature 2` : '- Key Feature 1\n- Key Feature 2' });
+                        }}
+                        className="px-2.5 py-1 bg-white hover:bg-gray-50 border border-gray-200 rounded-md font-medium text-gray-800 shadow-xs flex items-center gap-1 cursor-pointer"
+                        title="Add Bullet List"
+                      >
+                        <List className="w-3 h-3" />
+                        <span>Bullet List</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const val = editingNews.content || '';
+                          setEditingNews({ ...editingNews, content: val ? `${val}\n\n> Key Highlight Quote` : '> Key Highlight Quote' });
+                        }}
+                        className="px-2.5 py-1 bg-white hover:bg-gray-50 border border-gray-200 rounded-md text-gray-800 shadow-xs flex items-center gap-1 cursor-pointer"
+                        title="Add Highlight Quote"
+                      >
+                        <Quote className="w-3 h-3" />
+                        <span>Quote</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const val = editingNews.content || '';
+                          setEditingNews({ ...editingNews, content: `${val}\n\n` });
+                        }}
+                        className="px-2.5 py-1 bg-red-50 hover:bg-red-100 border border-red-200 text-[#D61F26] rounded-md font-bold text-[11px] shadow-xs cursor-pointer ml-auto"
+                        title="Add New Paragraph"
+                      >
+                        + New Paragraph (¶)
+                      </button>
+                    </div>
+
+                    <textarea
+                      rows={8}
+                      value={editingNews.content}
+                      onChange={(e) => setEditingNews({ ...editingNews, content: e.target.value })}
+                      placeholder="Write your article here... Press Enter twice to create a new paragraph. Use **bold text** for bold letters."
+                      className="w-full bg-white border border-gray-300 rounded-b-xl px-3.5 py-3 text-sm text-gray-900 leading-relaxed focus:outline-none focus:border-[#D61F26]"
+                    />
+
+                    <p className="text-[11.5px] text-gray-500 mt-1.5 flex items-center gap-1.5">
+                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#D61F26]"></span>
+                      <span><strong>Formatting Tip:</strong> Press Enter twice (leave an empty line) for paragraph spacing. Use <strong>**bold**</strong> for bold highlights.</span>
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 border border-gray-300 rounded-xl p-5 max-h-[320px] overflow-y-auto shadow-inner">
+                    {editingNews.content ? (
+                      <ArticleRenderer content={editingNews.content} />
+                    ) : (
+                      <div className="text-center py-8 text-gray-400 text-sm italic">
+                        No article content written yet. Switch to "Write" tab to add text.
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="pt-4 border-t border-gray-200 flex items-center justify-end gap-3">
