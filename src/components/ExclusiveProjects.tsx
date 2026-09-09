@@ -10,6 +10,9 @@ import {
   Sparkles,
   Heart,
   Star,
+  Camera,
+  Play,
+  Video,
 } from 'lucide-react';
 
 interface ExclusiveProjectsProps {
@@ -17,8 +20,8 @@ interface ExclusiveProjectsProps {
   properties?: Property[];
   wishlist?: string[];
   onToggleWishlist?: (id: string) => void;
-  onSelectProject: (project: Project) => void;
-  onSelectProperty?: (property: Property) => void;
+  onSelectProject: (project: Project, initialTab?: 'photos' | 'video') => void;
+  onSelectProperty?: (property: Property, initialTab?: 'photos' | 'video') => void;
   onViewAllProjects: (type?: string) => void;
 }
 
@@ -80,6 +83,9 @@ function convertPropertyToProject(prop: Property, targetSection?: string): Proje
     image:
       prop.images?.[0]?.url ||
       'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200&q=80',
+    images: prop.images && prop.images.length > 0 ? prop.images : undefined,
+    videoUrl: prop.videoUrl || prop.youtubeUrl,
+    youtubeUrl: prop.youtubeUrl || prop.videoUrl,
     isExclusive: Boolean(
       prop.displaySections?.includes('EXCLUSIVE') || prop.isExclusive || prop.isFeatured
     ),
@@ -341,6 +347,12 @@ export default function ExclusiveProjects({
 
                   {/* Badges and Wishlist on Image */}
                   <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                    {(project.videoUrl || project.youtubeUrl) && (
+                      <div className="bg-red-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wider shadow-md flex items-center gap-1">
+                        <Play className="w-2.5 h-2.5 fill-white" />
+                        <span>VIDEO</span>
+                      </div>
+                    )}
                     <div className="bg-gradient-to-r from-amber-600 to-amber-500 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-md uppercase tracking-wider shadow-md flex items-center gap-1">
                       <Star className="w-2.5 h-2.5 fill-white text-white" />
                       <span>FEATURED</span>
@@ -372,6 +384,13 @@ export default function ExclusiveProjects({
                   <div className="absolute bottom-3 left-3 bg-white/90 backdrop-blur-md text-gray-900 text-[11px] font-bold px-2.5 py-0.5 rounded-md shadow-sm">
                     {project.city}
                   </div>
+
+                  {((project.images && project.images.length > 1) || (properties?.find(p => p.id === project.id)?.images?.length || 0) > 1) && (
+                    <div className="absolute bottom-3 right-3 bg-black/75 backdrop-blur-md text-white text-[10.5px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 shadow">
+                      <Camera className="w-3 h-3 text-amber-400" />
+                      <span>{project.images?.length || properties?.find(p => p.id === project.id)?.images?.length} Photos</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Project Details */}
@@ -419,17 +438,45 @@ export default function ExclusiveProjects({
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleItemClick(project);
-                    }}
-                    className="w-full bg-[#111111] hover:bg-[#D61F26] text-white text-[13px] font-bold py-2.5 rounded-[12px] transition-all duration-200 cursor-pointer text-center group-hover:shadow-md"
-                    style={{ fontFamily: 'Inter, sans-serif' }}
-                  >
-                    Explore Project
-                  </button>
+                  {(project.videoUrl || project.youtubeUrl) ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleItemClick(project);
+                        }}
+                        className="bg-[#111111] hover:bg-black text-white text-[12.5px] font-bold py-2.5 rounded-[12px] transition-all duration-200 cursor-pointer text-center"
+                        style={{ fontFamily: 'Inter, sans-serif' }}
+                      >
+                        Explore Project
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleItemClick(project);
+                        }}
+                        className="bg-red-600 hover:bg-red-700 text-white text-[12.5px] font-bold py-2.5 rounded-[12px] transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
+                        style={{ fontFamily: 'Inter, sans-serif' }}
+                      >
+                        <Play className="w-3.5 h-3.5 fill-white" />
+                        <span>Property Video</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleItemClick(project);
+                      }}
+                      className="w-full bg-[#111111] hover:bg-[#D61F26] text-white text-[13px] font-bold py-2.5 rounded-[12px] transition-all duration-200 cursor-pointer text-center group-hover:shadow-md"
+                      style={{ fontFamily: 'Inter, sans-serif' }}
+                    >
+                      Explore Project
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -492,13 +539,28 @@ export default function ExclusiveProjects({
                 <div className="absolute top-3 left-3 bg-black/80 backdrop-blur-md text-white text-[10.5px] font-bold px-2.5 py-1 rounded-md shadow-sm truncate max-w-[160px]">
                   {project.builder}
                 </div>
-                <div className="absolute top-3 right-3 bg-[#D61F26] text-white text-[10px] font-extrabold px-2.5 py-1 rounded-md uppercase tracking-wider shadow-md flex items-center gap-1">
-                  {project.isExclusive && <Sparkles className="w-2.5 h-2.5" />}
-                  <span>{categoryBadge}</span>
+                <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                  {(project.videoUrl || project.youtubeUrl) && (
+                    <div className="bg-red-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wider shadow-md flex items-center gap-1">
+                      <Play className="w-2.5 h-2.5 fill-white" />
+                      <span>VIDEO</span>
+                    </div>
+                  )}
+                  <div className="bg-[#D61F26] text-white text-[10px] font-extrabold px-2.5 py-1 rounded-md uppercase tracking-wider shadow-md flex items-center gap-1">
+                    {project.isExclusive && <Sparkles className="w-2.5 h-2.5" />}
+                    <span>{categoryBadge}</span>
+                  </div>
                 </div>
                 <div className="absolute bottom-3 left-3 bg-white/90 backdrop-blur-md text-gray-900 text-[11px] font-bold px-2.5 py-0.5 rounded-md shadow-sm">
                   {project.city}
                 </div>
+
+                {((project.images && project.images.length > 1) || (properties?.find(p => p.id === project.id)?.images?.length || 0) > 1) && (
+                  <div className="absolute bottom-3 right-3 bg-black/75 backdrop-blur-md text-white text-[10.5px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 shadow">
+                    <Camera className="w-3 h-3 text-amber-400" />
+                    <span>{project.images?.length || properties?.find(p => p.id === project.id)?.images?.length} Photos</span>
+                  </div>
+                )}
               </div>
 
               {/* Project Details */}
@@ -546,17 +608,45 @@ export default function ExclusiveProjects({
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleItemClick(project);
-                  }}
-                  className="w-full bg-[#111111] hover:bg-[#D61F26] text-white text-[13px] font-bold py-2.5 rounded-[12px] transition-all duration-200 cursor-pointer text-center group-hover:shadow-md"
-                  style={{ fontFamily: 'Inter, sans-serif' }}
-                >
-                  Explore Project
-                </button>
+                {(project.videoUrl || project.youtubeUrl) ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleItemClick(project);
+                      }}
+                      className="bg-[#111111] hover:bg-black text-white text-[12.5px] font-bold py-2.5 rounded-[12px] transition-all duration-200 cursor-pointer text-center"
+                      style={{ fontFamily: 'Inter, sans-serif' }}
+                    >
+                      Explore Project
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleItemClick(project);
+                      }}
+                      className="bg-red-600 hover:bg-red-700 text-white text-[12.5px] font-bold py-2.5 rounded-[12px] transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
+                      style={{ fontFamily: 'Inter, sans-serif' }}
+                    >
+                      <Play className="w-3.5 h-3.5 fill-white" />
+                      <span>Property Video</span>
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleItemClick(project);
+                    }}
+                    className="w-full bg-[#111111] hover:bg-[#D61F26] text-white text-[13px] font-bold py-2.5 rounded-[12px] transition-all duration-200 cursor-pointer text-center group-hover:shadow-md"
+                    style={{ fontFamily: 'Inter, sans-serif' }}
+                  >
+                    Explore Project
+                  </button>
+                )}
               </div>
             </div>
           ))}

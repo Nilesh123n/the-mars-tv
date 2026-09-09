@@ -145,6 +145,8 @@ export function fromSupabaseRow(row: any): Property {
     contactEmail: row.contactEmail || row.contact_email || '',
     agencyName: row.agencyName || row.agency_name || '',
     isPhoneVerified: Boolean(row.isPhoneVerified ?? row.is_phone_verified ?? false),
+    videoUrl: row.videoUrl || row.video_url || row.youtubeUrl || row.youtube_url || undefined,
+    youtubeUrl: row.youtubeUrl || row.youtube_url || row.videoUrl || row.video_url || undefined,
     images,
     amenities,
     createdAt: row.createdAt || row.created_at || new Date().toISOString(),
@@ -189,10 +191,8 @@ export function toSupabaseRow(property: Property): Record<string, any> {
     is_sponsored: Boolean(property.isSponsored),
     is_featured: Boolean(property.isFeatured),
     is_exclusive: Boolean(property.isExclusive),
-    isExclusive: Boolean(property.isExclusive),
     project_type: property.projectType || (property.listingType === 'COMMERCIAL' ? 'COMMERCIAL' : 'RESIDENTIAL'),
     display_sections: property.displaySections || null,
-    displaySections: property.displaySections || null,
     builder: property.builder || property.agencyName || null,
     is_verified: Boolean(property.isVerified),
     is_rera_reg: Boolean(property.isReraReg),
@@ -205,6 +205,8 @@ export function toSupabaseRow(property: Property): Record<string, any> {
     contact_email: property.contactEmail || null,
     agency_name: property.agencyName || null,
     is_phone_verified: Boolean(property.isPhoneVerified),
+    video_url: property.videoUrl || property.youtubeUrl || null,
+    youtube_url: property.youtubeUrl || property.videoUrl || null,
     images: images,
     amenities: amenities,
     created_at: property.createdAt || new Date().toISOString(),
@@ -456,6 +458,32 @@ export function fromSupabaseProjectRow(row: any): Project {
     row.price_label ||
     (rawPrice >= 10000000 ? `₹ ${(rawPrice / 10000000).toFixed(2)} Cr` : `₹ ${(rawPrice / 100000).toFixed(2)} L`);
 
+  // Parse images if stored in row
+  let images: { url: string; alt?: string; isPrimary?: boolean }[] = [];
+  if (Array.isArray(row.images)) {
+    images = row.images.map((img: any) =>
+      typeof img === 'string'
+        ? { url: img, isPrimary: false }
+        : { url: img.url || row.image || 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1200&q=80', isPrimary: Boolean(img.isPrimary), alt: img.alt }
+    );
+  } else if (typeof row.images === 'string') {
+    try {
+      const parsed = JSON.parse(row.images);
+      if (Array.isArray(parsed)) {
+        images = parsed.map((img: any) =>
+          typeof img === 'string'
+            ? { url: img, isPrimary: false }
+            : { url: img.url || row.image || 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1200&q=80', isPrimary: Boolean(img.isPrimary), alt: img.alt }
+        );
+      }
+    } catch {
+      images = [{ url: row.images, isPrimary: true, alt: row.title }];
+    }
+  }
+  if (images.length === 0 && row.image) {
+    images = [{ url: row.image, isPrimary: true, alt: row.title || 'Project Image' }];
+  }
+
   return {
     id: String(row.id),
     title: row.title || 'Exclusive Project',
@@ -472,7 +500,10 @@ export function fromSupabaseProjectRow(row: any): Project {
     reraNumber: row.reraNumber || row.rera_number || '',
     configurations: configurations.length > 0 ? configurations : ['2 BHK', '3 BHK', '4 BHK'],
     amenities,
-    image: row.image || 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1200&q=80',
+    image: row.image || (images[0]?.url) || 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1200&q=80',
+    images: images.length > 0 ? images : undefined,
+    videoUrl: row.videoUrl || row.video_url || row.youtubeUrl || row.youtube_url || undefined,
+    youtubeUrl: row.youtubeUrl || row.youtube_url || row.videoUrl || row.video_url || undefined,
     isExclusive: Boolean(row.isExclusive ?? row.is_exclusive ?? true),
     isFeatured: Boolean(row.isFeatured ?? row.is_featured ?? true),
     createdAt: row.createdAt || row.created_at || new Date().toISOString(),
@@ -480,33 +511,31 @@ export function fromSupabaseProjectRow(row: any): Project {
 }
 
 export function toSupabaseProjectRow(project: Project): Record<string, any> {
+  const images = Array.isArray(project.images) && project.images.length > 0
+    ? project.images
+    : [{ url: project.image, isPrimary: true }];
+
   return {
     id: project.id,
     title: project.title,
     slug: project.slug || project.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
     description: project.description || '',
-    builder: project.builder,
-    developer: project.builder,
+    developer: project.builder || 'The Mars TV Exclusive',
     price: Number(project.price || 0),
-    price_label: project.priceLabel,
-    priceLabel: project.priceLabel,
-    location: project.location,
+    price_label: project.priceLabel || '',
+    location: project.location || '',
     city: project.city || 'Indore',
-    project_type: project.projectType,
-    projectType: project.projectType,
-    status: project.status,
-    possession: project.possession,
-    possession_date: project.possession,
+    project_type: project.projectType || 'RESIDENTIAL',
+    status: project.status || 'ACTIVE',
+    possession_status: project.status === 'Ready to Move' ? 'READY_TO_MOVE' : 'UNDER_CONSTRUCTION',
+    possession_date: project.possession || 'Ready to Move',
     rera_number: project.reraNumber || null,
-    reraNumber: project.reraNumber || null,
-    configurations: project.configurations || [],
+    image: project.image || images[0]?.url,
+    images: images,
+    video_url: project.videoUrl || project.youtubeUrl || null,
+    youtube_url: project.youtubeUrl || project.videoUrl || null,
     amenities: project.amenities || [],
-    image: project.image,
-    is_exclusive: Boolean(project.isExclusive),
-    isExclusive: Boolean(project.isExclusive),
     is_featured: Boolean(project.isFeatured),
-    isFeatured: Boolean(project.isFeatured),
     created_at: project.createdAt || new Date().toISOString(),
-    createdAt: project.createdAt || new Date().toISOString(),
   };
 }

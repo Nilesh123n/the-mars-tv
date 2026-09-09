@@ -907,6 +907,9 @@ export class DataService {
           ],
           amenities: property.amenities?.length ? property.amenities : ['24/7 Security', 'Power Backup', 'Prime Location'],
           image: property.images?.[0]?.url || 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200&q=80',
+          images: property.images && property.images.length > 0 ? property.images : undefined,
+          videoUrl: property.videoUrl || property.youtubeUrl || undefined,
+          youtubeUrl: property.youtubeUrl || property.videoUrl || undefined,
           isExclusive: Boolean(isExcl),
           isFeatured: Boolean(isFeat),
           createdAt: property.createdAt || new Date().toISOString(),
@@ -927,6 +930,18 @@ export class DataService {
         syncListeners.forEach((fn) => {
           try { fn('PROJECT_SAVED', { project: projItem, allProjects: updatedProj }); } catch(e){}
         });
+
+        // Also sync to Supabase projects table if available
+        if (isSupabaseConfigured()) {
+          try {
+            const supabase = getSupabaseClient();
+            if (supabase) {
+              await supabase.from('projects').upsert(toSupabaseProjectRow(projItem), { onConflict: 'id' });
+            }
+          } catch (projErr) {
+            console.warn('[PropertyService] Sync project to Supabase warning:', projErr);
+          }
+        }
       } catch (err) {
         console.warn('Sync property to projects failed:', err);
       }
@@ -948,15 +963,28 @@ export class DataService {
         const supabase = getSupabaseClient();
         if (supabase) {
           const supabaseRow = toSupabaseRow(property);
-          const { error } = await supabase
+          let { error } = await supabase
             .from('properties')
             .upsert(supabaseRow, { onConflict: 'id' })
             .select();
 
           if (error) {
-            // Supabase fail hua — log karo but crash mat karo
+            console.warn('[PropertyService] Primary Supabase upsert error:', error.message);
+            // If error is caused by missing video_url column in an older database, retry without it
+            if (error.message && (error.message.includes('video_url') || error.message.includes('youtube_url'))) {
+              const fallbackRow = { ...supabaseRow };
+              delete fallbackRow.video_url;
+              delete fallbackRow.youtube_url;
+              const retryRes = await supabase
+                .from('properties')
+                .upsert(fallbackRow, { onConflict: 'id' })
+                .select();
+              error = retryRes.error;
+            }
+          }
+
+          if (error) {
             console.error('[PropertyService] Supabase upsert warning:', error.message);
-            // Local data already save ho gaya — return karo
             return localUpdated;
           }
 
@@ -980,7 +1008,6 @@ export class DataService {
         }
       } catch (err) {
         console.error('[PropertyService] Supabase save failed, using local:', err);
-        // Local data already save ho gaya hai — wo return karo
         return localUpdated;
       }
     }
@@ -1100,6 +1127,12 @@ export class DataService {
         if (error) {
           console.error('[PropertyService] Supabase delete property warning:', error);
           throw new Error(`Failed to delete property in Supabase: ${error.message}`);
+        }
+        // Also delete from Supabase projects if present
+        try {
+          await supabase.from('projects').delete().eq('id', id);
+        } catch (projDelErr) {
+          console.warn('[PropertyService] Delete from Supabase projects warning:', projDelErr);
         }
       }
     }
@@ -1754,6 +1787,8 @@ CREATE TABLE IF NOT EXISTS public.properties (
     contact_email TEXT,
     agency_name TEXT,
     is_phone_verified BOOLEAN DEFAULT FALSE,
+    video_url TEXT,
+    youtube_url TEXT,
     images JSONB DEFAULT '[]'::jsonb,
     amenities JSONB DEFAULT '[]'::jsonb,
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -1886,6 +1921,9 @@ CREATE TABLE IF NOT EXISTS public.projects (
     reraNumber TEXT,
     description TEXT,
     image TEXT,
+    images JSONB DEFAULT '[]'::jsonb,
+    video_url TEXT,
+    youtube_url TEXT,
     amenities JSONB DEFAULT '[]'::jsonb,
     is_featured BOOLEAN DEFAULT TRUE,
     isFeatured BOOLEAN DEFAULT TRUE,
@@ -1962,6 +2000,14 @@ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.projects;
   END IF;
 END $$;
+
+-- 10. SAFE AUTO-MIGRATIONS FOR EXISTING INSTANCES
+-- (Adds video and youtube links and images support to existing tables without data loss)
+ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS video_url TEXT;
+ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS youtube_url TEXT;
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS video_url TEXT;
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS youtube_url TEXT;
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS images JSONB DEFAULT '[]'::jsonb;
 `;
   }
 }

@@ -53,6 +53,9 @@ import {
   Clock,
   Sparkles,
   Star,
+  Camera,
+  Play,
+  Video,
   Bold,
   Italic,
   Heading2,
@@ -61,6 +64,7 @@ import {
   Type
 } from 'lucide-react';
 import ArticleRenderer from '../ArticleRenderer';
+import { getYouTubeEmbedUrl, extractYouTubeId } from '../../lib/videoUtils';
 import { Property, PropertySection, NewsItem, PRServiceItem, Lead, PropertyType, ListingType, PropertyStatus, ConstructionPackage, SiteSettings, LeadStatus } from '../../types';
 import { DataService } from '../../lib/dataService';
 import { isSupabaseConfigured, getSupabaseCredentials, saveSupabaseConfig } from '../../lib/supabase';
@@ -390,9 +394,35 @@ export default function AdminSecretPage({
     if (!editingProperty) return;
 
     try {
-      const updated = await DataService.saveProperty(editingProperty);
+      // Sanitize and ensure up to 10 images are cleanly prepared
+      const cleanImages = (editingProperty.images || [])
+        .filter((img) => img && typeof img.url === 'string' && img.url.trim().length > 0)
+        .slice(0, 10)
+        .map((img, idx) => ({
+          ...img,
+          url: img.url.trim(),
+          isPrimary: idx === 0,
+          alt: img.alt?.trim() || `${editingProperty.title} photo ${idx + 1}`,
+        }));
+
+      // REQUIREMENT: Only 1 image is strictly required (Slot 1: Main Cover Photo)
+      if (cleanImages.length === 0 || !cleanImages[0]?.url) {
+        showToast('⚠️ At least 1 image (Slot 1: Main Cover Photo) is required to save property!');
+        return;
+      }
+
+      const cleanVideoUrl = (editingProperty.youtubeUrl || editingProperty.videoUrl || '').trim();
+
+      const propertyToSave: Property = {
+        ...editingProperty,
+        images: cleanImages,
+        videoUrl: cleanVideoUrl || undefined,
+        youtubeUrl: cleanVideoUrl || undefined,
+      };
+
+      const updated = await DataService.saveProperty(propertyToSave);
       setProperties(updated);
-      showToast(isNewProperty ? `Property "${editingProperty.title}" added & saved to database!` : `Updated property "${editingProperty.title}"`);
+      showToast(isNewProperty ? `Property "${propertyToSave.title}" added & saved to database!` : `Updated property "${propertyToSave.title}"`);
       setEditingProperty(null);
       setIsNewProperty(false);
     } catch (err: any) {
@@ -571,6 +601,8 @@ export default function AdminSecretPage({
       projectType: (propType === 'OFFICE' || listType === 'COMMERCIAL') ? 'COMMERCIAL' : 'RESIDENTIAL',
       builder: 'The Mars TV Exclusive',
       reraNumber: 'P-IND-24-9999',
+      youtubeUrl: '',
+      videoUrl: '',
       images: [
         {
           url: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200&q=80',
@@ -3502,47 +3534,447 @@ export default function AdminSecretPage({
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-gray-600 uppercase mb-1">
-                    Main Image URL or Upload
-                  </label>
-                  <div className="flex gap-2 items-center">
-                    <input
-                      type="text"
-                      value={editingProperty.images[0]?.url || ''}
-                      onChange={(e) => {
-                        const newImgs = [...editingProperty.images];
-                        if (newImgs.length === 0) {
-                          newImgs.push({ url: e.target.value, isPrimary: true });
-                        } else {
-                          newImgs[0] = { ...newImgs[0], url: e.target.value };
-                        }
-                        setEditingProperty({ ...editingProperty, images: newImgs });
-                      }}
-                      placeholder="https://..."
-                      className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3.5 py-2 text-sm text-gray-900 focus:outline-none focus:border-[#D61F26]"
-                    />
-                    <label className="px-3 py-2 bg-gray-800 text-white text-xs font-bold rounded-xl cursor-pointer hover:bg-black shrink-0 flex items-center gap-1">
-                      <Upload className="w-3.5 h-3.5" />
-                      <span>Upload</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) =>
-                          handleImageFileUpload(e, (url) => {
-                            const newImgs = [...editingProperty.images];
-                            if (newImgs.length === 0) {
-                              newImgs.push({ url, isPrimary: true });
-                            } else {
-                              newImgs[0] = { ...newImgs[0], url };
+                {/* 10 IMAGES PROPERTY GALLERY MANAGEMENT (ONLY 1 REQUIRED) */}
+                <div className="bg-gray-50/90 rounded-2xl p-4 sm:p-5 border border-gray-200/90 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-200 pb-3">
+                    <div>
+                      <label className="text-xs font-black text-gray-900 uppercase tracking-wider flex items-center gap-2">
+                        <Camera className="w-4 h-4 text-[#D61F26]" />
+                        <span>Property Photo Gallery (Up to 10 Images)</span>
+                        <span className="text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-full">
+                          Only 1 Image Required
+                        </span>
+                        <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
+                          (editingProperty.images?.length || 0) >= 1
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : 'bg-red-50 text-[#D61F26] border-red-200 animate-pulse'
+                        }`}>
+                          {editingProperty.images?.length || 0} / 10 Images Added
+                        </span>
+                      </label>
+                      <p className="text-[11.5px] text-gray-500 mt-0.5">
+                        <strong className="text-gray-800">Slot 1 is the main cover photo and is the only required photo.</strong> Slots 2 through 10 are optional. All added images are saved to the database and displayed when exploring the project on the website.
+                      </p>
+                    </div>
+
+                    {/* Quick Multi-Upload Button */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <label className="px-3.5 py-1.5 bg-[#111111] hover:bg-[#D61F26] text-white text-xs font-bold rounded-xl cursor-pointer transition-all shadow-sm flex items-center gap-1.5">
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Upload Multiple Photos</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          className="hidden"
+                          onChange={(e) => {
+                            const files = e.target.files;
+                            if (!files || files.length === 0) return;
+                            const curImgs = [...(editingProperty.images || [])];
+                            const remaining = 10 - curImgs.length;
+                            if (remaining <= 0) {
+                              showToast('Maximum 10 images reached. Remove an image to add new ones.');
+                              return;
                             }
-                            setEditingProperty({ ...editingProperty, images: newImgs });
-                          })
-                        }
-                      />
-                    </label>
+                            const filesToLoad = Array.from(files).slice(0, remaining);
+                            let completed = 0;
+                            filesToLoad.forEach((file) => {
+                              const reader = new FileReader();
+                              reader.onload = (ev) => {
+                                if (ev.target?.result) {
+                                  curImgs.push({
+                                    url: ev.target.result as string,
+                                    isPrimary: curImgs.length === 0,
+                                    alt: file.name.replace(/\.[^/.]+$/, ''),
+                                  });
+                                  completed++;
+                                  if (completed === filesToLoad.length) {
+                                    setEditingProperty({
+                                      ...editingProperty,
+                                      images: curImgs.slice(0, 10),
+                                    });
+                                    showToast(`${completed} image(s) uploaded successfully!`);
+                                  }
+                                }
+                              };
+                              reader.readAsDataURL(file);
+                            });
+                          }}
+                        />
+                      </label>
+                    </div>
                   </div>
+
+                  {/* 10 Slots Grid (Responsive 5-col on desktop) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((slotIdx) => {
+                      const img = editingProperty.images?.[slotIdx];
+                      const slotLabels = [
+                        'Slot 1: Main Cover ⭐ (Required)',
+                        'Slot 2: Living / Interior',
+                        'Slot 3: Master Bedroom / Suite',
+                        'Slot 4: Kitchen / Dining Area',
+                        'Slot 5: Exterior / Frontage / Land',
+                        'Slot 6: Balcony / Terrace View',
+                        'Slot 7: Floor Plan / Layout',
+                        'Slot 8: Clubhouse / Amenities',
+                        'Slot 9: Parking / Entry View',
+                        'Slot 10: Extra Feature / Land',
+                      ];
+
+                      const isRequiredSlot = slotIdx === 0;
+
+                      return (
+                        <div
+                          key={slotIdx}
+                          className={`flex flex-col rounded-xl border p-3 transition-all ${
+                            img
+                              ? 'bg-white border-gray-300 shadow-xs'
+                              : isRequiredSlot
+                              ? 'bg-red-50/40 border-dashed border-red-300 ring-1 ring-red-200'
+                              : 'bg-gray-50/50 border-dashed border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-1 mb-2">
+                            <span className="text-[10.5px] font-bold text-gray-800 truncate" title={slotLabels[slotIdx]}>
+                              {slotLabels[slotIdx]}
+                            </span>
+                            {isRequiredSlot ? (
+                              <span className="text-[8.5px] font-black bg-[#D61F26] text-white px-1.5 py-0.5 rounded shadow-xs uppercase">
+                                REQUIRED *
+                              </span>
+                            ) : (
+                              <span className="text-[8.5px] font-medium text-gray-400">
+                                Optional
+                              </span>
+                            )}
+                          </div>
+
+                          {img ? (
+                            <div className="space-y-2 flex-1 flex flex-col justify-between">
+                              {/* Preview Image */}
+                              <div className="relative h-28 w-full rounded-lg overflow-hidden bg-gray-100 border border-gray-200 group">
+                                <img
+                                  src={img.url}
+                                  alt={img.alt || `Photo ${slotIdx + 1}`}
+                                  className="w-full h-full object-cover"
+                                />
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                  <label className="p-1.5 bg-white/90 hover:bg-white text-gray-800 rounded-lg cursor-pointer text-xs font-bold shadow" title="Replace Photo">
+                                    <Upload className="w-3.5 h-3.5" />
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      className="hidden"
+                                      onChange={(e) =>
+                                        handleImageFileUpload(e, (url) => {
+                                          const newImgs = [...(editingProperty.images || [])];
+                                          newImgs[slotIdx] = { ...newImgs[slotIdx], url };
+                                          setEditingProperty({ ...editingProperty, images: newImgs });
+                                        })
+                                      }
+                                    />
+                                  </label>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newImgs = editingProperty.images.filter((_, i) => i !== slotIdx);
+                                      if (newImgs.length > 0 && !newImgs.some((x) => x.isPrimary)) {
+                                        newImgs[0].isPrimary = true;
+                                      }
+                                      setEditingProperty({ ...editingProperty, images: newImgs });
+                                      showToast(`Removed Photo ${slotIdx + 1}`);
+                                    }}
+                                    className="p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold shadow cursor-pointer"
+                                    title="Delete Photo"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* URL text field */}
+                              <div className="space-y-1">
+                                <input
+                                  type="text"
+                                  value={img.url}
+                                  onChange={(e) => {
+                                    const newImgs = [...editingProperty.images];
+                                    newImgs[slotIdx] = { ...newImgs[slotIdx], url: e.target.value };
+                                    setEditingProperty({ ...editingProperty, images: newImgs });
+                                  }}
+                                  placeholder="https://..."
+                                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-[11px] text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                                />
+                                <div className="flex items-center justify-between gap-1 pt-1">
+                                  {slotIdx > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const newImgs = [...editingProperty.images];
+                                        const [selected] = newImgs.splice(slotIdx, 1);
+                                        newImgs.unshift(selected);
+                                        const reordered = newImgs.map((item, idx) => ({
+                                          ...item,
+                                          isPrimary: idx === 0,
+                                        }));
+                                        setEditingProperty({ ...editingProperty, images: reordered });
+                                        showToast('Moved to Slot 1 (Main Cover)!');
+                                      }}
+                                      className="text-[10px] text-amber-700 font-bold hover:underline flex items-center gap-0.5 cursor-pointer"
+                                    >
+                                      <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
+                                      <span>Make Cover</span>
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newImgs = editingProperty.images.filter((_, i) => i !== slotIdx);
+                                      if (newImgs.length > 0 && !newImgs.some((x) => x.isPrimary)) {
+                                        newImgs[0].isPrimary = true;
+                                      }
+                                      setEditingProperty({ ...editingProperty, images: newImgs });
+                                    }}
+                                    className="text-[10px] text-red-600 font-bold hover:underline ml-auto cursor-pointer"
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            /* Empty Slot */
+                            <div className="h-full min-h-[140px] flex flex-col items-center justify-center text-center p-2 rounded-lg bg-white/60 border border-dashed border-gray-300">
+                              <Camera className={`w-5 h-5 mb-1.5 ${isRequiredSlot ? 'text-red-500' : 'text-gray-400'}`} />
+                              <span className={`text-[10.5px] font-bold mb-2 ${isRequiredSlot ? 'text-red-700' : 'text-gray-600'}`}>
+                                {isRequiredSlot ? 'Add Required Image *' : `Slot ${slotIdx + 1} (Optional)`}
+                              </span>
+                              
+                              <div className="w-full space-y-1.5">
+                                <label className="w-full py-1.5 px-2 bg-gray-100 hover:bg-gray-200 text-gray-800 text-[10.5px] font-bold rounded-lg cursor-pointer flex items-center justify-center gap-1 transition-all">
+                                  <Upload className="w-3 h-3 text-[#D61F26]" />
+                                  <span>Upload</span>
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={(e) =>
+                                      handleImageFileUpload(e, (url) => {
+                                        const newImgs = [...(editingProperty.images || [])];
+                                        newImgs.push({
+                                          url,
+                                          isPrimary: newImgs.length === 0,
+                                          alt: `Photo ${newImgs.length + 1}`,
+                                        });
+                                        setEditingProperty({ ...editingProperty, images: newImgs });
+                                      })
+                                    }
+                                  />
+                                </label>
+
+                                <input
+                                  type="text"
+                                  placeholder="URL + Enter"
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      const target = e.target as HTMLInputElement;
+                                      if (target.value.trim()) {
+                                        const newImgs = [...(editingProperty.images || [])];
+                                        newImgs.push({
+                                          url: target.value.trim(),
+                                          isPrimary: newImgs.length === 0,
+                                          alt: `Photo ${newImgs.length + 1}`,
+                                        });
+                                        setEditingProperty({ ...editingProperty, images: newImgs });
+                                        target.value = '';
+                                      }
+                                    }
+                                  }}
+                                  className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1 text-[10px] text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Preset Library for Fast Population */}
+                  <div className="pt-2 border-t border-gray-200/80">
+                    <span className="text-[11px] font-bold text-gray-600 block mb-1.5">
+                      ⚡ Quick Add Preset High-Res Photos (Click to insert into next available slot):
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { name: '🌾 Agriculture Land', url: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1200&q=80' },
+                        { name: '🏡 Luxury Villa', url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&q=80' },
+                        { name: '🏢 High-Rise Tower', url: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1200&q=80' },
+                        { name: '🛋️ Modern Living Room', url: 'https://images.unsplash.com/photo-1600566753376-12c8ab7fb75b?w=1200&q=80' },
+                        { name: '🛏️ Master Bedroom', url: 'https://images.unsplash.com/photo-1616594039964-ae9021a400a0?w=1200&q=80' },
+                        { name: '🍳 Modular Kitchen', url: 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?w=1200&q=80' },
+                        { name: '🏢 Commercial Office', url: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200&q=80' },
+                        { name: '🌳 Garden & Lawn', url: 'https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?w=1200&q=80' },
+                        { name: '🏊 Swimming Pool', url: 'https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?w=1200&q=80' },
+                        { name: '📐 Floor Plan Blueprint', url: 'https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=1200&q=80' },
+                      ].map((preset, pIdx) => (
+                        <button
+                          key={pIdx}
+                          type="button"
+                          disabled={(editingProperty.images?.length || 0) >= 10}
+                          onClick={() => {
+                            const curImgs = [...(editingProperty.images || [])];
+                            if (curImgs.length >= 10) {
+                              showToast('Maximum 10 images reached.');
+                              return;
+                            }
+                            curImgs.push({
+                              url: preset.url,
+                              isPrimary: curImgs.length === 0,
+                              alt: preset.name,
+                            });
+                            setEditingProperty({ ...editingProperty, images: curImgs });
+                            showToast(`Added ${preset.name} photo!`);
+                          }}
+                          className="px-2.5 py-1 bg-white border border-gray-200 hover:border-[#D61F26] hover:text-[#D61F26] text-gray-700 text-[11px] font-semibold rounded-lg transition-all cursor-pointer shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          {preset.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* YOUTUBE PROPERTY VIDEO TOUR SECTION */}
+                <div className="bg-gradient-to-r from-red-50/60 via-gray-50 to-white rounded-2xl p-4 sm:p-5 border border-red-200 space-y-4 shadow-xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-200 pb-3">
+                    <div>
+                      <label className="text-xs font-black text-gray-900 uppercase tracking-wider flex items-center gap-2">
+                        <Video className="w-4 h-4 text-red-600" />
+                        <span>Property Video Tour (YouTube Video Link)</span>
+                        <span className="text-[10px] font-bold text-red-700 bg-red-100 border border-red-300 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <Play className="w-2.5 h-2.5 fill-red-600" />
+                          Plays Inside Website
+                        </span>
+                      </label>
+                      <p className="text-[11.5px] text-gray-500 mt-0.5">
+                        Paste a YouTube video link. When visitors click <strong>"Explore Project"</strong> or <strong>"Property Video"</strong> on the website, this video will play directly on the website via embedded player.
+                      </p>
+                    </div>
+
+                    {/* Quick Demo Video Buttons */}
+                    <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                      <span className="text-[10.5px] text-gray-400 font-bold">Quick Fill:</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const demo = 'https://www.youtube.com/watch?v=kY3jXl_4f7k';
+                          setEditingProperty({
+                            ...editingProperty,
+                            youtubeUrl: demo,
+                            videoUrl: demo,
+                          });
+                          showToast('Added Luxury Villa Tour sample video!');
+                        }}
+                        className="px-2 py-1 bg-white border border-gray-200 hover:border-red-500 hover:text-red-600 text-gray-700 text-[10.5px] font-semibold rounded-lg transition-all cursor-pointer shadow-2xs"
+                      >
+                        Sample Luxury Tour
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const demo = 'https://www.youtube.com/watch?v=ysz5S6PUM-U';
+                          setEditingProperty({
+                            ...editingProperty,
+                            youtubeUrl: demo,
+                            videoUrl: demo,
+                          });
+                          showToast('Added Property Tour sample video!');
+                        }}
+                        className="px-2 py-1 bg-white border border-gray-200 hover:border-red-500 hover:text-red-600 text-gray-700 text-[10.5px] font-semibold rounded-lg transition-all cursor-pointer shadow-2xs"
+                      >
+                        Sample Video 2
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <div className="relative flex-1">
+                        <input
+                          type="text"
+                          value={editingProperty.youtubeUrl || editingProperty.videoUrl || ''}
+                          onChange={(e) => {
+                            const val = e.target.value.trim();
+                            setEditingProperty({
+                              ...editingProperty,
+                              youtubeUrl: val,
+                              videoUrl: val,
+                            });
+                          }}
+                          placeholder="Paste YouTube Link: e.g. https://www.youtube.com/watch?v=... or https://youtu.be/..."
+                          className="w-full bg-white border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-200 pl-9 font-mono placeholder:text-gray-400"
+                        />
+                        <Play className="w-4 h-4 text-red-600 absolute left-3 top-1/2 -translate-y-1/2 fill-red-600" />
+                      </div>
+
+                      {(editingProperty.youtubeUrl || editingProperty.videoUrl) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingProperty({
+                              ...editingProperty,
+                              youtubeUrl: '',
+                              videoUrl: '',
+                            });
+                            showToast('Cleared video link');
+                          }}
+                          className="px-3.5 py-2 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-all cursor-pointer border border-red-200 shrink-0"
+                        >
+                          Clear Video
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 text-[11px] text-gray-500">
+                      <span className="font-semibold text-gray-700">Supported Formats:</span>
+                      <span>youtube.com/watch?v=ID</span>
+                      <span>•</span>
+                      <span>youtu.be/ID</span>
+                      <span>•</span>
+                      <span>youtube.com/shorts/ID</span>
+                    </div>
+                  </div>
+
+                  {/* Real-time Inline Player Preview in Admin */}
+                  {getYouTubeEmbedUrl(editingProperty.youtubeUrl || editingProperty.videoUrl) ? (
+                    <div className="rounded-xl overflow-hidden border border-gray-300 shadow-md bg-black">
+                      <div className="flex items-center justify-between px-3 py-2 bg-gray-900 text-white text-[11.5px] font-bold">
+                        <span className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                          <span>YouTube Video Live Preview (Plays Directly in Website)</span>
+                        </span>
+                        <span className="text-gray-400 font-mono text-[10.5px]">
+                          Video ID: {extractYouTubeId(editingProperty.youtubeUrl || editingProperty.videoUrl)}
+                        </span>
+                      </div>
+                      <div className="relative aspect-video w-full max-w-2xl mx-auto bg-black">
+                        <iframe
+                          src={getYouTubeEmbedUrl(editingProperty.youtubeUrl || editingProperty.videoUrl, false)!}
+                          title="YouTube Video Preview"
+                          className="w-full h-full border-0"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                      </div>
+                    </div>
+                  ) : (editingProperty.youtubeUrl || editingProperty.videoUrl) ? (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-center gap-2">
+                      <span>⚠️ Link entered does not match standard YouTube video format. Please ensure it is a valid YouTube URL (e.g., https://www.youtube.com/watch?v=xyz).</span>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div>

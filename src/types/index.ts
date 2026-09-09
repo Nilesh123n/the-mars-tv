@@ -36,6 +36,8 @@ export interface Property {
   displaySections?: PropertySection[];
   builder?: string;
   images: { url: string; alt?: string; isPrimary?: boolean }[];
+  videoUrl?: string;
+  youtubeUrl?: string;
   amenities: string[];
   lat?: number;
   lng?: number;
@@ -43,6 +45,7 @@ export interface Property {
 
   // Detailed Verification & Listing Submission Fields
   userRole?: UserRole;
+  propertyCategory?: 'RESIDENTIAL' | 'COMMERCIAL' | 'AGRICULTURE' | string;
   subCategory?: string;
   locality?: string;
   address?: string;
@@ -82,6 +85,9 @@ export interface Project {
   configurations: string[];
   amenities: string[];
   image: string;
+  images?: { url: string; alt?: string; isPrimary?: boolean }[];
+  videoUrl?: string;
+  youtubeUrl?: string;
   isExclusive: boolean;
   isFeatured: boolean;
   createdAt: string;

@@ -343,7 +343,11 @@ export default function App() {
                   isVerified: true,
                   isReraReg: true,
                   reraNumber: proj.reraNumber,
-                  images: [{ url: proj.image, isPrimary: true, alt: proj.title }],
+                  images: (proj.images && proj.images.length > 0)
+                    ? proj.images
+                    : [{ url: proj.image, isPrimary: true, alt: proj.title }],
+                  videoUrl: proj.videoUrl || proj.youtubeUrl,
+                  youtubeUrl: proj.youtubeUrl || proj.videoUrl,
                   amenities: proj.amenities,
                   createdAt: proj.createdAt,
                 });

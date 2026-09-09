@@ -41,10 +41,15 @@ const AMENITY_OPTIONS = [
   { id: 'Grand Clubhouse', label: 'Grand Clubhouse & Banquet Hall', icon: '🏛️' },
   { id: 'EV Charging Station', label: 'Dedicated EV Vehicle Charging Bay', icon: '🔌' },
   { id: '24/7 Water Supply', label: '24/7 Water & Rainwater Harvesting', icon: '💧' },
+  { id: 'Fencing & Boundary', label: 'Secured Fencing & Boundary Wall', icon: '🧱' },
+  { id: 'Borewell & Water Source', label: 'Borewell & Natural Water Source', icon: '🌾' },
+  { id: 'Agricultural Electricity', label: '3-Phase Agricultural Electricity', icon: '⚡' },
+  { id: 'Tar Road Access', label: 'Tar / Concrete Approach Road', icon: '🛣️' },
 ];
 
 const PRESET_PHOTOS = [
   { url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&q=80', label: 'Luxury Villa Exterior' },
+  { url: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1200&q=80', label: 'Green Farmland & Countryside' },
   { url: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=1200&q=80', label: 'Modern High-Rise Living' },
   { url: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1200&q=80', label: 'Apartment Tower' },
   { url: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200&q=80', label: 'Grade-A Commercial Office' },
@@ -62,9 +67,9 @@ export default function ListPropertyModal({
   // 2. Basic Information
   const [title, setTitle] = useState('');
   const [listingType, setListingType] = useState<ListingType>('BUY');
-  const [propertyCategory, setPropertyCategory] = useState<'RESIDENTIAL' | 'COMMERCIAL'>('RESIDENTIAL');
+  const [propertyCategory, setPropertyCategory] = useState<'RESIDENTIAL' | 'COMMERCIAL' | 'AGRICULTURE'>('RESIDENTIAL');
   const [propertyType, setPropertyType] = useState<PropertyType>('APARTMENT');
-  const [subCategory, setSubCategory] = useState('Luxury Apartment');
+  const [subCategory, setSubCategory] = useState('Apartment / High-rise Flat');
 
   // 3. Location Details (Indian vs International Selection)
   const [locationRegion, setLocationRegion] = useState<'India' | 'International'>('India');
@@ -88,7 +93,7 @@ export default function ListPropertyModal({
   // 4. Specifications & Pricing
   const [configuration, setConfiguration] = useState('3 BHK');
   const [area, setArea] = useState<number | ''>(1650);
-  const [areaUnit, setAreaUnit] = useState<'sq.ft' | 'sq.yards' | 'acres'>('sq.ft');
+  const [areaUnit, setAreaUnit] = useState<'sq.ft' | 'sq.yards' | 'acres' | 'bigha' | 'hectares'>('sq.ft');
   const [bedrooms, setBedrooms] = useState(3);
   const [bathrooms, setBathrooms] = useState(3);
   const [parking, setParking] = useState(1);
@@ -304,6 +309,7 @@ export default function ListPropertyModal({
       possessionStatus,
       possessionDate,
       propertyType,
+      propertyCategory,
       subCategory,
       listingType,
       status: 'PENDING_APPROVAL', // Strict initial status for review in Admin Panel
@@ -559,14 +565,31 @@ export default function ListPropertyModal({
                       <select
                         value={propertyCategory}
                         onChange={(e) => {
-                          const cat = e.target.value as 'RESIDENTIAL' | 'COMMERCIAL';
+                          const cat = e.target.value as 'RESIDENTIAL' | 'COMMERCIAL' | 'AGRICULTURE';
                           setPropertyCategory(cat);
-                          setPropertyType(cat === 'RESIDENTIAL' ? 'APARTMENT' : 'OFFICE');
+                          if (cat === 'RESIDENTIAL') {
+                            setPropertyType('APARTMENT');
+                            setSubCategory('Apartment / High-rise Flat');
+                            if (configuration.includes('Land')) setConfiguration('3 BHK');
+                          } else if (cat === 'COMMERCIAL') {
+                            setPropertyType('OFFICE');
+                            setSubCategory('IT Park / Grade-A Office Space');
+                            if (configuration.includes('Land')) setConfiguration('Commercial Bare Shell');
+                          } else {
+                            setPropertyType('AGRICULTURE_LAND');
+                            setSubCategory('Agricultural Farmland / Kheti Ki Zameen');
+                            setConfiguration('Agriculture Land / Farm Land');
+                            setBedrooms(0);
+                            setBathrooms(0);
+                            setParking(0);
+                            setAreaUnit('acres');
+                          }
                         }}
                         className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-[13.5px] font-semibold focus:outline-none focus:border-[#D61F26] bg-white cursor-pointer"
                       >
                         <option value="RESIDENTIAL">Residential Property</option>
                         <option value="COMMERCIAL">Commercial Property</option>
+                        <option value="AGRICULTURE">🌾 Agriculture Land / Farm Land</option>
                       </select>
                     </div>
 
@@ -588,13 +611,12 @@ export default function ListPropertyModal({
                           <option value="APARTMENT">Apartment / High-rise Flat</option>
                           <option value="VILLA">Independent Villa / House</option>
                           <option value="PLOT">Residential Plot / Gated Land</option>
-                          <option value="AGRICULTURE_LAND">Agriculture Land / Farmhouse Plot</option>
                           <option value="BUILDER_FLOOR">Builder Floor</option>
                           <option value="PENTHOUSE">Sky Penthouse</option>
                           <option value="STUDIO">Studio Suite</option>
                           <option value="ROW_HOUSE">Row House / Duplex</option>
                         </select>
-                      ) : (
+                      ) : propertyCategory === 'COMMERCIAL' ? (
                         <select
                           value={propertyType}
                           onChange={(e) => {
@@ -608,7 +630,29 @@ export default function ListPropertyModal({
                           <option value="RETAIL">Retail Showroom / Shop</option>
                           <option value="WAREHOUSE">Industrial Warehouse / Godown</option>
                           <option value="LAND">Commercial Plot / SCO Land</option>
-                          <option value="AGRICULTURE_LAND">Agriculture Land / Farmland</option>
+                        </select>
+                      ) : (
+                        <select
+                          value={subCategory}
+                          onChange={(e) => {
+                            setPropertyType('AGRICULTURE_LAND');
+                            setSubCategory(e.target.value);
+                            setConfiguration('Agriculture Land / Farm Land');
+                            setBedrooms(0);
+                            setBathrooms(0);
+                            if (areaUnit === 'sq.ft') setAreaUnit('acres');
+                          }}
+                          className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-[13.5px] font-semibold focus:outline-none focus:border-[#D61F26] bg-white cursor-pointer"
+                        >
+                          <option value="Agricultural Farmland / Kheti Ki Zameen">🌾 Agricultural Farmland / Kheti Ki Zameen</option>
+                          <option value="Farmhouse Plot / Countryside Living">🏡 Farmhouse Plot / Countryside Living</option>
+                          <option value="Organic Farming / Polyhouse Land">🌱 Organic Farming / Polyhouse Land</option>
+                          <option value="Horticulture & Fruit Orchard (Bagicha)">🍎 Horticulture & Fruit Orchard (Bagicha)</option>
+                          <option value="Dairy & Livestock Farm Land">🐄 Dairy & Livestock Farm Land</option>
+                          <option value="Canal / Tube-Well Irrigated Agri Land">💧 Irrigated Agricultural Land (Nahari / Tube-well)</option>
+                          <option value="Agro-Forestry & Timber Plantation (Teak / Bamboo)">🌲 Agro-Forestry / Plantation Land (Teak / Bamboo)</option>
+                          <option value="Highway Touch Agri Investment Land">🛣️ Highway Touch Agri Investment Land</option>
+                          <option value="Raw Barren / Undeveloped Rural Land">🚜 Raw Barren / Undeveloped Rural Land</option>
                         </select>
                       )}
                     </div>
@@ -801,6 +845,8 @@ export default function ListPropertyModal({
                       <option value="Commercial Bare Shell">Commercial Bare Shell</option>
                       <option value="Fully Fitted Office">Fully Fitted Office</option>
                       <option value="Open Commercial Plot">Open Commercial Plot</option>
+                      <option value="Agriculture Land / Farm Land">🌾 Agriculture Land / Farm Land</option>
+                      <option value="Residential Plot">Residential Plot</option>
                     </select>
                   </div>
 
@@ -820,12 +866,14 @@ export default function ListPropertyModal({
                       />
                       <select
                         value={areaUnit}
-                        onChange={(e) => setAreaUnit(e.target.value as 'sq.ft' | 'sq.yards' | 'acres')}
+                        onChange={(e) => setAreaUnit(e.target.value as any)}
                         className="border border-gray-300 rounded-r-xl px-2 py-2.5 text-xs font-bold bg-gray-100 text-gray-700 focus:outline-none cursor-pointer"
                       >
                         <option value="sq.ft">Sq. Ft.</option>
                         <option value="sq.yards">Sq. Yds</option>
                         <option value="acres">Acres</option>
+                        <option value="bigha">Bigha</option>
+                        <option value="hectares">Hectares</option>
                       </select>
                     </div>
                   </div>
@@ -841,6 +889,7 @@ export default function ListPropertyModal({
                         onChange={(e) => setBathrooms(Number(e.target.value))}
                         className="w-full border border-gray-300 rounded-xl px-2 py-2.5 text-[12px] font-semibold bg-white"
                       >
+                        <option value={0}>0 Bath (Land)</option>
                         <option value={1}>1 Bath</option>
                         <option value={2}>2 Baths</option>
                         <option value={3}>3 Baths</option>
@@ -851,6 +900,7 @@ export default function ListPropertyModal({
                         onChange={(e) => setParking(Number(e.target.value))}
                         className="w-full border border-gray-300 rounded-xl px-2 py-2.5 text-[12px] font-semibold bg-white"
                       >
+                        <option value={0}>0 Parking</option>
                         <option value={1}>1 Car</option>
                         <option value={2}>2 Cars</option>
                         <option value={3}>3+ Cars</option>

@@ -1,6 +1,7 @@
 import { useState, FormEvent } from 'react';
 import { Property } from '../types';
-import { X, MapPin, BedDouble, Car, Maximize2, ShieldCheck, Check, Phone, Mail, Calendar, Share2, Heart, Send } from 'lucide-react';
+import { X, MapPin, BedDouble, Car, Maximize2, ShieldCheck, Check, Phone, Mail, Calendar, Share2, Heart, Send, ChevronLeft, ChevronRight, Camera, Play, Video } from 'lucide-react';
+import { getYouTubeEmbedUrl } from '../lib/videoUtils';
 
 interface PropertyDetailModalProps {
   property: Property | null;
@@ -8,6 +9,7 @@ interface PropertyDetailModalProps {
   isWishlisted: boolean;
   onToggleWishlist: (id: string) => void;
   onSubmitLead: (lead: { name: string; phone: string; email: string; message: string; propertyTitle: string }) => void;
+  initialViewMode?: 'photos' | 'video';
 }
 
 export default function PropertyDetailModal({
@@ -16,10 +18,15 @@ export default function PropertyDetailModal({
   isWishlisted,
   onToggleWishlist,
   onSubmitLead,
+  initialViewMode = 'photos',
 }: PropertyDetailModalProps) {
   if (!property) return null;
 
+  const embedUrl = getYouTubeEmbedUrl(property.youtubeUrl || property.videoUrl);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [viewMode, setViewMode] = useState<'photos' | 'video'>(
+    initialViewMode === 'video' && embedUrl ? 'video' : 'photos'
+  );
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -80,35 +87,179 @@ export default function PropertyDetailModal({
         {/* Modal Body */}
         <div className="p-6 sm:p-8 space-y-8">
           
-          {/* Main Gallery */}
-          <div>
-            <div className="relative h-[340px] sm:h-[440px] rounded-[20px] overflow-hidden bg-gray-100 shadow-inner">
-              <img
-                src={property.images[activeImageIndex]?.url || property.images[0]?.url}
-                alt={property.title}
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute bottom-4 left-4 bg-black/75 backdrop-blur-md text-white text-[12px] font-semibold px-3 py-1.5 rounded-lg">
-                Photo {activeImageIndex + 1} of {property.images.length}
-              </div>
-            </div>
+          {/* Main Gallery and Video Tour */}
+          <div className="space-y-3">
+            {/* View Mode Switcher Tabs (Photos vs Property Video) */}
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center bg-gray-100 p-1 rounded-xl border border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('photos')}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    viewMode === 'photos'
+                      ? 'bg-white text-gray-900 shadow-xs'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <Camera className="w-3.5 h-3.5 text-[#D61F26]" />
+                  <span>Photos ({property.images.length})</span>
+                </button>
 
-            {/* Thumbnail Row */}
-            {property.images.length > 1 && (
-              <div className="flex items-center gap-3 mt-3 overflow-x-auto pb-1">
-                {property.images.map((img, idx) => (
+                {embedUrl && (
                   <button
-                    key={idx}
-                    onClick={() => setActiveImageIndex(idx)}
-                    className={`relative w-20 h-16 rounded-xl overflow-hidden border-2 transition-all flex-shrink-0 cursor-pointer ${
-                      activeImageIndex === idx ? 'border-[#D61F26] scale-105 shadow-md' : 'border-transparent opacity-70 hover:opacity-100'
+                    type="button"
+                    onClick={() => setViewMode('video')}
+                    className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      viewMode === 'video'
+                        ? 'bg-red-600 text-white shadow-sm'
+                        : 'text-gray-700 hover:text-red-600 hover:bg-red-50'
                     }`}
                   >
-                    <img src={img.url} alt="" className="w-full h-full object-cover" />
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    <span>Property Video Tour</span>
+                    <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-black/20 text-white">
+                      Live
+                    </span>
                   </button>
-                ))}
+                )}
+              </div>
+
+              {embedUrl && viewMode === 'photos' && (
+                <button
+                  type="button"
+                  onClick={() => setViewMode('video')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-xs font-bold rounded-xl transition-all cursor-pointer group"
+                >
+                  <Play className="w-3.5 h-3.5 fill-red-600 text-red-600 group-hover:scale-110 transition-transform" />
+                  <span>Watch Property Video</span>
+                </button>
+              )}
+            </div>
+
+            {/* Display Stage: Either Video or Photo */}
+            {viewMode === 'video' && embedUrl ? (
+              <div className="relative h-[340px] sm:h-[440px] rounded-[20px] overflow-hidden bg-black shadow-lg border border-gray-800">
+                <iframe
+                  src={embedUrl}
+                  title={`${property.title} Property Video Tour`}
+                  className="w-full h-full border-0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+                <button
+                  type="button"
+                  onClick={() => setViewMode('photos')}
+                  className="absolute top-3 right-3 bg-black/80 hover:bg-[#D61F26] text-white text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5 backdrop-blur-md transition-all cursor-pointer shadow-lg z-10"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  <span>Switch to Photos</span>
+                </button>
+              </div>
+            ) : (
+              <div className="relative h-[340px] sm:h-[440px] rounded-[20px] overflow-hidden bg-gray-900 shadow-inner group select-none">
+                <img
+                  src={property.images[activeImageIndex]?.url || property.images[0]?.url}
+                  alt={property.title}
+                  className="w-full h-full object-cover transition-all duration-300"
+                />
+
+                {/* Prev / Next navigation buttons */}
+                {property.images.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setActiveImageIndex((prev) => (prev > 0 ? prev - 1 : property.images.length - 1))
+                      }
+                      className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/60 hover:bg-[#D61F26] text-white flex items-center justify-center backdrop-blur-md transition-all shadow-lg cursor-pointer opacity-90 hover:scale-110"
+                      title="Previous Photo"
+                    >
+                      <ChevronLeft className="w-6 h-6" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setActiveImageIndex((prev) => (prev < property.images.length - 1 ? prev + 1 : 0))
+                      }
+                      className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/60 hover:bg-[#D61F26] text-white flex items-center justify-center backdrop-blur-md transition-all shadow-lg cursor-pointer opacity-90 hover:scale-110"
+                      title="Next Photo"
+                    >
+                      <ChevronRight className="w-6 h-6" />
+                    </button>
+                  </>
+                )}
+
+                {/* Photo Indicator */}
+                <div className="absolute bottom-4 left-4 bg-black/75 backdrop-blur-md text-white text-[12px] font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow">
+                  <Camera className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Photo {activeImageIndex + 1} of {property.images.length}</span>
+                </div>
+
+                {/* Primary tag */}
+                {(property.images[activeImageIndex]?.isPrimary || activeImageIndex === 0) && (
+                  <div className="absolute top-4 left-4 bg-[#D61F26] text-white text-[10px] font-black px-2.5 py-1 rounded-md uppercase tracking-wider shadow">
+                    Main Photo
+                  </div>
+                )}
+
+                {/* Floating "Watch Video" button on photo */}
+                {embedUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('video')}
+                    className="absolute top-4 right-4 bg-red-600/90 hover:bg-red-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5 backdrop-blur-md transition-all cursor-pointer shadow-lg hover:scale-105"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-white" />
+                    <span>Watch Property Video</span>
+                  </button>
+                )}
               </div>
             )}
+
+            {/* Thumbnail Row (Photos + Video Tour) */}
+            <div className="flex items-center gap-2.5 mt-3 overflow-x-auto pb-1">
+              {/* Photo Thumbnails */}
+              {property.images.map((img, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    setActiveImageIndex(idx);
+                    setViewMode('photos');
+                  }}
+                  className={`relative w-20 sm:w-24 h-16 sm:h-18 rounded-xl overflow-hidden border-2 transition-all flex-shrink-0 cursor-pointer ${
+                    viewMode === 'photos' && activeImageIndex === idx
+                      ? 'border-[#D61F26] scale-105 shadow-md ring-2 ring-red-200'
+                      : 'border-transparent opacity-70 hover:opacity-100 hover:border-gray-300'
+                  }`}
+                >
+                  <img src={img.url} alt="" className="w-full h-full object-cover" />
+                  <span className="absolute bottom-1 right-1 bg-black/75 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
+                    #{idx + 1}
+                  </span>
+                </button>
+              ))}
+
+              {/* Video Thumbnail Button */}
+              {embedUrl && (
+                <button
+                  type="button"
+                  onClick={() => setViewMode('video')}
+                  className={`relative w-24 sm:w-28 h-16 sm:h-18 rounded-xl overflow-hidden border-2 transition-all flex-shrink-0 cursor-pointer bg-black flex flex-col items-center justify-center text-white ${
+                    viewMode === 'video'
+                      ? 'border-red-600 scale-105 shadow-md ring-2 ring-red-200'
+                      : 'border-gray-700 opacity-80 hover:opacity-100'
+                  }`}
+                >
+                  <div className="w-7 h-7 rounded-full bg-red-600 flex items-center justify-center mb-1 shadow">
+                    <Play className="w-3.5 h-3.5 fill-white text-white ml-0.5" />
+                  </div>
+                  <span className="text-[10px] font-bold tracking-tight text-white">
+                    Video Tour
+                  </span>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Title and Price */}
@@ -210,6 +361,36 @@ export default function PropertyDetailModal({
                   <div>
                     <h4 className="text-[14px] font-bold text-emerald-900">RERA Compliant Listing</h4>
                     <p className="text-[12px] text-emerald-700">Official RERA Registration Number: <strong>{property.reraNumber}</strong></p>
+                  </div>
+                </div>
+              )}
+
+              {/* Dedicated Embedded YouTube Video Tour Block */}
+              {embedUrl && (
+                <div className="bg-gray-900 rounded-2xl p-5 text-white space-y-3.5 border border-gray-800 shadow-md">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-red-600 flex items-center justify-center shadow">
+                        <Play className="w-4 h-4 fill-white text-white ml-0.5" />
+                      </div>
+                      <div>
+                        <h4 className="text-[15px] font-bold text-white">Property Video Tour</h4>
+                        <p className="text-[11.5px] text-gray-400">Streamed from YouTube • Plays directly within website</p>
+                      </div>
+                    </div>
+                    <span className="text-[11px] font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-700/50 px-2.5 py-0.5 rounded-full">
+                      HD Video
+                    </span>
+                  </div>
+
+                  <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-black shadow-inner">
+                    <iframe
+                      src={embedUrl}
+                      title={`${property.title} Video Tour`}
+                      className="w-full h-full border-0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                    />
                   </div>
                 </div>
               )}
