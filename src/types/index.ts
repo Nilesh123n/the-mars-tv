@@ -1,4 +1,4 @@
-export type PropertyType = 'APARTMENT' | 'VILLA' | 'PLOT' | 'ROW_HOUSE' | 'OFFICE' | 'RETAIL' | 'WAREHOUSE' | 'PENTHOUSE' | 'STUDIO' | 'BUILDER_FLOOR' | 'LAND';
+export type PropertyType = 'APARTMENT' | 'VILLA' | 'PLOT' | 'ROW_HOUSE' | 'OFFICE' | 'RETAIL' | 'WAREHOUSE' | 'PENTHOUSE' | 'STUDIO' | 'BUILDER_FLOOR' | 'LAND' | 'AGRICULTURE_LAND';
 
 export type ListingType = 'BUY' | 'SELL' | 'RENT' | 'LEASE' | 'COMMERCIAL';
 

@@ -588,6 +588,7 @@ export default function ListPropertyModal({
                           <option value="APARTMENT">Apartment / High-rise Flat</option>
                           <option value="VILLA">Independent Villa / House</option>
                           <option value="PLOT">Residential Plot / Gated Land</option>
+                          <option value="AGRICULTURE_LAND">Agriculture Land / Farmhouse Plot</option>
                           <option value="BUILDER_FLOOR">Builder Floor</option>
                           <option value="PENTHOUSE">Sky Penthouse</option>
                           <option value="STUDIO">Studio Suite</option>
@@ -607,6 +608,7 @@ export default function ListPropertyModal({
                           <option value="RETAIL">Retail Showroom / Shop</option>
                           <option value="WAREHOUSE">Industrial Warehouse / Godown</option>
                           <option value="LAND">Commercial Plot / SCO Land</option>
+                          <option value="AGRICULTURE_LAND">Agriculture Land / Farmland</option>
                         </select>
                       )}
                     </div>

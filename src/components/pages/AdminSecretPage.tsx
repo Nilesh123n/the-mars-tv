@@ -2955,9 +2955,10 @@ export default function AdminSecretPage({
       {/* EDIT / CREATE PROPERTY FORM MODAL                         */}
       {/* ========================================================= */}
       {editingProperty && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-200">
-            <div className="p-6 bg-[#111111] text-white flex items-center justify-between sticky top-0 z-10">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 md:p-6 overflow-hidden">
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-4xl w-full max-h-[92vh] sm:max-h-[90vh] my-auto shadow-2xl border border-gray-200 flex flex-col overflow-hidden">
+            {/* Modal Header (Pinned) */}
+            <div className="px-5 py-4 sm:px-6 sm:py-4.5 bg-[#111111] text-white flex items-center justify-between shrink-0 border-b border-gray-800">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-[#D61F26] rounded-xl text-white">
                   <Building className="w-5 h-5" />
@@ -2972,6 +2973,7 @@ export default function AdminSecretPage({
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setEditingProperty(null)}
                 className="p-2 hover:bg-gray-800 text-gray-400 hover:text-white rounded-full transition-colors cursor-pointer"
               >
@@ -2979,518 +2981,807 @@ export default function AdminSecretPage({
               </button>
             </div>
 
-            <form onSubmit={handleSaveProperty} className="p-6 space-y-5 text-gray-800">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-600 uppercase mb-1">
-                    Property Title *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={editingProperty.title}
-                    onChange={(e) =>
-                      setEditingProperty({ ...editingProperty, title: e.target.value })
-                    }
-                    className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3.5 py-2 text-sm font-semibold text-gray-900 focus:outline-none focus:border-[#D61F26]"
-                  />
+            {/* Modal Form: Scrollable Body + Pinned Footer */}
+            <form onSubmit={handleSaveProperty} className="flex flex-col flex-1 overflow-hidden min-h-0">
+              <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5 text-gray-800">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 uppercase mb-1">
+                      Property Title *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={editingProperty.title}
+                      onChange={(e) =>
+                        setEditingProperty({ ...editingProperty, title: e.target.value })
+                      }
+                      placeholder="e.g. 5 Acre Prime Agricultural Land / Luxury 3 BHK"
+                      className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3.5 py-2 text-sm font-semibold text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 uppercase mb-1">
+                      Developer / Builder / Owner Name
+                    </label>
+                    <input
+                      type="text"
+                      value={editingProperty.builder || ''}
+                      onChange={(e) =>
+                        setEditingProperty({ ...editingProperty, builder: e.target.value })
+                      }
+                      placeholder="e.g. The Mars TV Exclusive / Private Owner"
+                      className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3.5 py-2 text-sm font-semibold text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                    />
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-gray-600 uppercase mb-1">
-                    Price Tag / Display (e.g. ₹1.25 Cr) *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={editingProperty.priceLabel}
-                    onChange={(e) =>
-                      setEditingProperty({ ...editingProperty, priceLabel: e.target.value })
-                    }
-                    className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3.5 py-2 text-sm font-semibold text-gray-900 focus:outline-none focus:border-[#D61F26]"
-                  />
-                </div>
-              </div>
+                {/* INDIA & INTERNATIONAL LOCATION SELECTOR BLOCK */}
+                <div className="bg-gray-50 p-4 rounded-2xl border border-gray-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-[#D61F26]" />
+                      <span>State & City Hierarchy Location</span>
+                    </span>
+                    <span className="text-[10px] text-gray-400 font-medium">India & Global Coverage</span>
+                  </div>
 
-              {/* INDIA & INTERNATIONAL LOCATION SELECTOR BLOCK */}
-              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-200 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-[#D61F26]" />
-                    <span>State & City Hierarchy Location</span>
-                  </span>
-                  <span className="text-[10px] text-gray-400 font-medium">India & Global Coverage</span>
-                </div>
+                  {/* Country / Region Toggle */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPropModalRegion('India');
+                        const firstState = INDIA_LOCATION_DATA[0];
+                        setPropModalStateId(firstState.id);
+                        setEditingProperty({
+                          ...editingProperty,
+                          city: firstState.cities[0].name,
+                          location: editingProperty.location.includes(',') ? editingProperty.location : `${editingProperty.location || firstState.cities[0].name}, ${firstState.name}`,
+                        });
+                      }}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        propModalRegion === 'India'
+                          ? 'bg-[#D61F26] text-white shadow-xs'
+                          : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100'
+                      }`}
+                    >
+                      <span>🇮🇳 India States & Cities</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPropModalRegion('International');
+                        const firstIntl = INTERNATIONAL_LOCATION_DATA[0];
+                        setPropModalStateId(firstIntl.id);
+                        setEditingProperty({
+                          ...editingProperty,
+                          city: firstIntl.cities[0].name,
+                          location: `${firstIntl.cities[0].name}, ${firstIntl.name}`,
+                        });
+                      }}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        propModalRegion === 'International'
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100'
+                      }`}
+                    >
+                      <span>🌐 International (NRI & Global)</span>
+                    </button>
+                  </div>
 
-                {/* Country / Region Toggle */}
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPropModalRegion('India');
-                      const firstState = INDIA_LOCATION_DATA[0];
-                      setPropModalStateId(firstState.id);
-                      setEditingProperty({
-                        ...editingProperty,
-                        city: firstState.cities[0].name,
-                        location: editingProperty.location.includes(',') ? editingProperty.location : `${editingProperty.location || firstState.cities[0].name}, ${firstState.name}`,
-                      });
-                    }}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                      propModalRegion === 'India'
-                        ? 'bg-[#D61F26] text-white shadow-xs'
-                        : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100'
-                    }`}
-                  >
-                    <span>🇮🇳 India States & Cities</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPropModalRegion('International');
-                      const firstIntl = INTERNATIONAL_LOCATION_DATA[0];
-                      setPropModalStateId(firstIntl.id);
-                      setEditingProperty({
-                        ...editingProperty,
-                        city: firstIntl.cities[0].name,
-                        location: `${firstIntl.cities[0].name}, ${firstIntl.name}`,
-                      });
-                    }}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                      propModalRegion === 'International'
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100'
-                    }`}
-                  >
-                    <span>🌐 International (NRI & Global)</span>
-                  </button>
-                </div>
+                  {/* State and City Selectors */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1">
+                        Select {propModalRegion === 'India' ? 'State' : 'Country / Region'} *
+                      </label>
+                      <select
+                        value={propModalStateId}
+                        onChange={(e) => {
+                          const newStateId = e.target.value;
+                          setPropModalStateId(newStateId);
+                          const stateList = propModalRegion === 'India' ? INDIA_LOCATION_DATA : INTERNATIONAL_LOCATION_DATA;
+                          const stateObj = stateList.find((s) => s.id === newStateId);
+                          if (stateObj && stateObj.cities.length > 0) {
+                            setEditingProperty({
+                              ...editingProperty,
+                              city: stateObj.cities[0].name,
+                            });
+                          }
+                        }}
+                        className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-xs font-bold text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                      >
+                        {(propModalRegion === 'India' ? INDIA_LOCATION_DATA : INTERNATIONAL_LOCATION_DATA).map((state) => (
+                          <option key={state.id} value={state.id}>
+                            {state.name} ({state.cities.length} cities)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-                {/* State and City Selectors */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1">
+                        Select City *
+                      </label>
+                      {(() => {
+                        const stateList = propModalRegion === 'India' ? INDIA_LOCATION_DATA : INTERNATIONAL_LOCATION_DATA;
+                        const activeState = stateList.find((s) => s.id === propModalStateId) || stateList[0];
+                        return (
+                          <select
+                            value={editingProperty.city}
+                            onChange={(e) =>
+                              setEditingProperty({
+                                ...editingProperty,
+                                city: e.target.value,
+                              })
+                            }
+                            className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-xs font-bold text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                          >
+                            {activeState.cities.map((city) => (
+                              <option key={city.id} value={city.name}>
+                                {city.name}
+                              </option>
+                            ))}
+                          </select>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1">
-                      Select {propModalRegion === 'India' ? 'State' : 'Country / Region'} *
+                      Locality, Area & Landmark Address *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={editingProperty.location}
+                      onChange={(e) =>
+                        setEditingProperty({ ...editingProperty, location: e.target.value })
+                      }
+                      placeholder="e.g., Bandra West, Near Linking Road, Mumbai"
+                      className="w-full bg-white border border-gray-300 rounded-xl px-3.5 py-2 text-xs font-semibold text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                    />
+                  </div>
+                </div>
+
+                {/* CLASSIFICATION: LISTING TYPE, PROPERTY TYPE & STATUS */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 uppercase mb-1">
+                      Listing Type
                     </label>
                     <select
-                      value={propModalStateId}
-                      onChange={(e) => {
-                        const newStateId = e.target.value;
-                        setPropModalStateId(newStateId);
-                        const stateList = propModalRegion === 'India' ? INDIA_LOCATION_DATA : INTERNATIONAL_LOCATION_DATA;
-                        const stateObj = stateList.find((s) => s.id === newStateId);
-                        if (stateObj && stateObj.cities.length > 0) {
-                          setEditingProperty({
-                            ...editingProperty,
-                            city: stateObj.cities[0].name,
-                          });
-                        }
-                      }}
-                      className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-xs font-bold text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                      value={editingProperty.listingType}
+                      onChange={(e) =>
+                        setEditingProperty({
+                          ...editingProperty,
+                          listingType: e.target.value as ListingType,
+                        })
+                      }
+                      className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3 py-2 text-sm font-semibold text-gray-900 focus:outline-none focus:border-[#D61F26]"
                     >
-                      {(propModalRegion === 'India' ? INDIA_LOCATION_DATA : INTERNATIONAL_LOCATION_DATA).map((state) => (
-                        <option key={state.id} value={state.id}>
-                          {state.name} ({state.cities.length} cities)
-                        </option>
-                      ))}
+                      <option value="BUY">BUY</option>
+                      <option value="RENT">RENT</option>
+                      <option value="COMMERCIAL">COMMERCIAL</option>
+                      <option value="SELL">SELL</option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1">
-                      Select City *
+                    <label className="block text-xs font-bold text-gray-600 uppercase mb-1">
+                      Property Type *
                     </label>
-                    {(() => {
-                      const stateList = propModalRegion === 'India' ? INDIA_LOCATION_DATA : INTERNATIONAL_LOCATION_DATA;
-                      const activeState = stateList.find((s) => s.id === propModalStateId) || stateList[0];
-                      return (
+                    <select
+                      value={editingProperty.propertyType}
+                      onChange={(e) => {
+                        const newType = e.target.value as PropertyType;
+                        setEditingProperty({
+                          ...editingProperty,
+                          propertyType: newType,
+                          ...(newType === 'AGRICULTURE_LAND'
+                            ? {
+                                configuration:
+                                  editingProperty.configuration && !editingProperty.configuration.includes('BHK')
+                                    ? editingProperty.configuration
+                                    : 'Agriculture Land / Farm Land',
+                                bedrooms: 0,
+                                areaUnit: editingProperty.areaUnit === 'sq.ft' ? 'acres' : editingProperty.areaUnit,
+                              }
+                            : {}),
+                        });
+                      }}
+                      className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3 py-2 text-sm font-semibold text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                    >
+                      <option value="APARTMENT">APARTMENT</option>
+                      <option value="VILLA">VILLA</option>
+                      <option value="PLOT">PLOT (Residential Plot)</option>
+                      <option value="AGRICULTURE_LAND">🌾 AGRICULTURE LAND (Farm Land / Agri Plot)</option>
+                      <option value="OFFICE">OFFICE</option>
+                      <option value="RETAIL">RETAIL</option>
+                      <option value="WAREHOUSE">WAREHOUSE</option>
+                      <option value="LAND">LAND (Commercial Plot / SCO)</option>
+                      <option value="PENTHOUSE">PENTHOUSE</option>
+                      <option value="STUDIO">STUDIO</option>
+                      <option value="BUILDER_FLOOR">BUILDER FLOOR</option>
+                      <option value="ROW_HOUSE">ROW HOUSE</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 uppercase mb-1">
+                      Status
+                    </label>
+                    <select
+                      value={editingProperty.status}
+                      onChange={(e) =>
+                        setEditingProperty({
+                          ...editingProperty,
+                          status: e.target.value as PropertyStatus,
+                        })
+                      }
+                      className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3 py-2 text-sm font-semibold text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                    >
+                      <option value="ACTIVE">ACTIVE (Published Live)</option>
+                      <option value="PENDING_APPROVAL">PENDING_APPROVAL (Under Review)</option>
+                      <option value="SOLD">SOLD</option>
+                      <option value="RENTED">RENTED</option>
+                      <option value="INACTIVE">INACTIVE</option>
+                      <option value="REJECTED">REJECTED</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* ========================================================= */}
+                {/* PROPERTY SPECIFICATIONS & PRICING (MATCHING LIST PROPERTY) */}
+                {/* ========================================================= */}
+                <div className="bg-white p-5 rounded-2xl border-2 border-gray-200 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="w-6 h-6 bg-[#D61F26] text-white text-xs font-black rounded-full flex items-center justify-center">
+                        ★
+                      </span>
+                      <h4 className="font-extrabold text-sm text-gray-900 uppercase tracking-wide flex items-center gap-2">
+                        <Sliders className="w-4 h-4 text-[#D61F26]" />
+                        <span>Property Specifications & Pricing</span>
+                      </h4>
+                    </div>
+                    <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                      Specifications & Rates
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                    {/* Configuration */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                        Configuration <span className="text-[#D61F26]">*</span>
+                      </label>
+                      <select
+                        value={editingProperty.configuration || '3 BHK'}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          let beds = editingProperty.bedrooms ?? 0;
+                          if (val.includes('1 BHK') || val.includes('1 RK')) beds = 1;
+                          else if (val.includes('2 BHK')) beds = 2;
+                          else if (val.includes('3 BHK')) beds = 3;
+                          else if (val.includes('4 BHK')) beds = 4;
+                          else if (val.includes('5')) beds = 5;
+                          else if (val.includes('Land') || val.includes('Plot') || val.includes('Office') || val.includes('Shell')) beds = 0;
+                          setEditingProperty({
+                            ...editingProperty,
+                            configuration: val,
+                            bedrooms: beds,
+                          });
+                        }}
+                        className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-xs font-semibold focus:outline-none focus:border-[#D61F26] bg-white cursor-pointer"
+                      >
+                        <option value="1 BHK">1 BHK</option>
+                        <option value="2 BHK">2 BHK</option>
+                        <option value="3 BHK">3 BHK</option>
+                        <option value="4 BHK">4 BHK</option>
+                        <option value="5+ BHK / Sky Villa">5+ BHK / Sky Villa</option>
+                        <option value="Studio Suite / 1 RK">Studio Suite / 1 RK</option>
+                        <option value="Commercial Bare Shell">Commercial Bare Shell</option>
+                        <option value="Fully Fitted Office">Fully Fitted Office</option>
+                        <option value="Open Commercial Plot">Open Commercial Plot</option>
+                        <option value="Agriculture Land / Farm Land">🌾 Agriculture Land / Farm Land</option>
+                        <option value="Residential Plot">Residential Plot</option>
+                      </select>
+                    </div>
+
+                    {/* Super Built-up Area / Plot Area */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                        Area (Built-up / Land) <span className="text-[#D61F26]">*</span>
+                      </label>
+                      <div className="flex">
+                        <input
+                          type="number"
+                          required
+                          value={editingProperty.area || ''}
+                          onChange={(e) => {
+                            const val = e.target.value ? Number(e.target.value) : 0;
+                            const pr = editingProperty.price || 0;
+                            const ppsq = val > 0 && pr > 0 ? Math.round(pr / val) : editingProperty.pricePerSqFt;
+                            setEditingProperty({
+                              ...editingProperty,
+                              area: val,
+                              pricePerSqFt: ppsq,
+                            });
+                          }}
+                          placeholder="1650"
+                          className="w-full border border-r-0 border-gray-300 rounded-l-xl px-3 py-2.5 text-xs font-semibold focus:outline-none focus:border-[#D61F26]"
+                        />
                         <select
-                          value={editingProperty.city}
+                          value={editingProperty.areaUnit || 'sq.ft'}
+                          onChange={(e) =>
+                            setEditingProperty({ ...editingProperty, areaUnit: e.target.value })
+                          }
+                          className="border border-gray-300 rounded-r-xl px-2 py-2.5 text-[11px] font-bold bg-gray-100 text-gray-700 focus:outline-none cursor-pointer"
+                        >
+                          <option value="sq.ft">Sq. Ft.</option>
+                          <option value="sq.yards">Sq. Yds</option>
+                          <option value="acres">Acres</option>
+                          <option value="bigha">Bigha</option>
+                          <option value="hectares">Hectares</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Baths & Parking */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                        Baths & Parking
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <select
+                          value={editingProperty.bathrooms ?? 2}
                           onChange={(e) =>
                             setEditingProperty({
                               ...editingProperty,
-                              city: e.target.value,
+                              bathrooms: Number(e.target.value),
                             })
                           }
-                          className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-xs font-bold text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                          className="w-full border border-gray-300 rounded-xl px-2 py-2.5 text-[11px] font-semibold bg-white cursor-pointer"
                         >
-                          {activeState.cities.map((city) => (
-                            <option key={city.id} value={city.name}>
-                              {city.name}
-                            </option>
-                          ))}
+                          <option value={0}>0 Bath</option>
+                          <option value={1}>1 Bath</option>
+                          <option value={2}>2 Baths</option>
+                          <option value={3}>3 Baths</option>
+                          <option value={4}>4 Baths</option>
+                          <option value={5}>5+ Baths</option>
                         </select>
-                      );
-                    })()}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1">
-                    Locality, Area & Landmark Address *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={editingProperty.location}
-                    onChange={(e) =>
-                      setEditingProperty({ ...editingProperty, location: e.target.value })
-                    }
-                    placeholder="e.g., Bandra West, Near Linking Road, Mumbai"
-                    className="w-full bg-white border border-gray-300 rounded-xl px-3.5 py-2 text-xs font-semibold text-gray-900 focus:outline-none focus:border-[#D61F26]"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-600 uppercase mb-1">
-                    Listing Type
-                  </label>
-                  <select
-                    value={editingProperty.listingType}
-                    onChange={(e) =>
-                      setEditingProperty({
-                        ...editingProperty,
-                        listingType: e.target.value as ListingType,
-                      })
-                    }
-                    className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3 py-2 text-sm font-semibold text-gray-900 focus:outline-none focus:border-[#D61F26]"
-                  >
-                    <option value="BUY">BUY</option>
-                    <option value="RENT">RENT</option>
-                    <option value="COMMERCIAL">COMMERCIAL</option>
-                    <option value="SELL">SELL</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-600 uppercase mb-1">
-                    Property Type
-                  </label>
-                  <select
-                    value={editingProperty.propertyType}
-                    onChange={(e) =>
-                      setEditingProperty({
-                        ...editingProperty,
-                        propertyType: e.target.value as PropertyType,
-                      })
-                    }
-                    className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3 py-2 text-sm font-semibold text-gray-900 focus:outline-none focus:border-[#D61F26]"
-                  >
-                    <option value="APARTMENT">APARTMENT</option>
-                    <option value="VILLA">VILLA</option>
-                    <option value="PLOT">PLOT</option>
-                    <option value="OFFICE">OFFICE</option>
-                    <option value="RETAIL">RETAIL</option>
-                    <option value="WAREHOUSE">WAREHOUSE</option>
-                    <option value="PENTHOUSE">PENTHOUSE</option>
-                    <option value="STUDIO">STUDIO</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-600 uppercase mb-1">
-                    Status
-                  </label>
-                  <select
-                    value={editingProperty.status}
-                    onChange={(e) =>
-                      setEditingProperty({
-                        ...editingProperty,
-                        status: e.target.value as PropertyStatus,
-                      })
-                    }
-                    className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3 py-2 text-sm font-semibold text-gray-900 focus:outline-none focus:border-[#D61F26]"
-                  >
-                    <option value="ACTIVE">ACTIVE (Published Live)</option>
-                    <option value="PENDING_APPROVAL">PENDING_APPROVAL (Under Review)</option>
-                    <option value="SOLD">SOLD</option>
-                    <option value="RENTED">RENTED</option>
-                    <option value="INACTIVE">INACTIVE</option>
-                    <option value="REJECTED">REJECTED</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-600 uppercase mb-1">
-                  Main Image URL or Upload
-                </label>
-                <div className="flex gap-2 items-center">
-                  <input
-                    type="text"
-                    value={editingProperty.images[0]?.url || ''}
-                    onChange={(e) => {
-                      const newImgs = [...editingProperty.images];
-                      if (newImgs.length === 0) {
-                        newImgs.push({ url: e.target.value, isPrimary: true });
-                      } else {
-                        newImgs[0] = { ...newImgs[0], url: e.target.value };
-                      }
-                      setEditingProperty({ ...editingProperty, images: newImgs });
-                    }}
-                    placeholder="https://..."
-                    className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3.5 py-2 text-sm text-gray-900 focus:outline-none focus:border-[#D61F26]"
-                  />
-                  <label className="px-3 py-2 bg-gray-800 text-white text-xs font-bold rounded-xl cursor-pointer hover:bg-black shrink-0 flex items-center gap-1">
-                    <Upload className="w-3.5 h-3.5" />
-                    <span>Upload</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) =>
-                        handleImageFileUpload(e, (url) => {
-                          const newImgs = [...editingProperty.images];
-                          if (newImgs.length === 0) {
-                            newImgs.push({ url, isPrimary: true });
-                          } else {
-                            newImgs[0] = { ...newImgs[0], url };
-                          }
-                          setEditingProperty({ ...editingProperty, images: newImgs });
-                        })
-                      }
-                    />
-                  </label>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-600 uppercase mb-1">
-                  Description
-                </label>
-                <textarea
-                  rows={3}
-                  value={editingProperty.description}
-                  onChange={(e) =>
-                    setEditingProperty({ ...editingProperty, description: e.target.value })
-                  }
-                  className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3.5 py-2 text-sm font-medium text-gray-900 focus:outline-none focus:border-[#D61F26]"
-                />
-              </div>
-
-              {/* SECTION-WISE VISIBILITY ASSIGNMENT (Multi-Select) */}
-              <div className="pt-4 pb-2 border-t border-gray-200">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-                  <div>
-                    <label className="text-xs font-black text-gray-900 uppercase tracking-wider flex items-center gap-2">
-                      <Layers className="w-4 h-4 text-[#D61F26]" />
-                      <span>Display In Sections (Section-Wise Multi-Select)</span>
-                      <span className="text-[11px] font-bold text-[#D61F26] bg-red-50 border border-red-200 px-2.5 py-0.5 rounded-full">
-                        {editingProperty.displaySections?.length || 0} Selected
-                      </span>
-                    </label>
-                    <p className="text-[11.5px] text-gray-500 mt-0.5">
-                      Select one or more website sections where this property will appear. The property will strictly show in the chosen sections.
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const allSecs: PropertySection[] = [
-                          'FEATURED',
-                          'EXCLUSIVE',
-                          'COMMERCIAL',
-                          'RESIDENTIAL',
-                          'SPONSORED',
-                        ];
-                        setEditingProperty({
-                          ...editingProperty,
-                          displaySections: allSecs,
-                          isFeatured: true,
-                          isExclusive: true,
-                          isSponsored: true,
-                        });
-                      }}
-                      className="px-2.5 py-1 text-[11px] font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors cursor-pointer"
-                    >
-                      Select All
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingProperty({
-                          ...editingProperty,
-                          displaySections: [],
-                          isFeatured: false,
-                          isExclusive: false,
-                          isSponsored: false,
-                        });
-                      }}
-                      className="px-2.5 py-1 text-[11px] font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors cursor-pointer"
-                    >
-                      Clear All
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                  {[
-                    {
-                      id: 'FEATURED' as PropertySection,
-                      label: 'Featured Properties',
-                      location: 'Top of Showcase',
-                      desc: 'Shows inside FEATURED & EXCLUSIVE PROJECTS at top & in Featured tab',
-                      icon: Star,
-                      activeBorder: 'border-amber-400 bg-amber-50/70',
-                      badgeColor: 'bg-amber-100 text-amber-900',
-                    },
-                    {
-                      id: 'EXCLUSIVE' as PropertySection,
-                      label: 'Exclusive Projects',
-                      location: 'Exclusive Showcase',
-                      desc: 'Shows in Exclusive Projects subsection & exclusive projects tab',
-                      icon: Sparkles,
-                      activeBorder: 'border-red-400 bg-red-50/70',
-                      badgeColor: 'bg-red-100 text-[#D61F26]',
-                    },
-                    {
-                      id: 'COMMERCIAL' as PropertySection,
-                      label: 'Commercial Projects',
-                      location: 'Commercial Hub',
-                      desc: 'Shows in Commercial Projects subsection & commercial spaces tab',
-                      icon: Building2,
-                      activeBorder: 'border-blue-400 bg-blue-50/70',
-                      badgeColor: 'bg-blue-100 text-blue-900',
-                    },
-                    {
-                      id: 'RESIDENTIAL' as PropertySection,
-                      label: 'Residential Projects',
-                      location: 'Residential Hub',
-                      desc: 'Shows in Residential Projects subsection & residential tab',
-                      icon: Home,
-                      activeBorder: 'border-emerald-400 bg-emerald-50/70',
-                      badgeColor: 'bg-emerald-100 text-emerald-900',
-                    },
-                    {
-                      id: 'SPONSORED' as PropertySection,
-                      label: 'Sponsored Properties',
-                      location: 'Home Carousel',
-                      desc: 'Shows in Sponsored Properties / Trending picks slider on Home Page',
-                      icon: Megaphone,
-                      activeBorder: 'border-purple-400 bg-purple-50/70',
-                      badgeColor: 'bg-purple-100 text-purple-900',
-                    },
-                  ].map((sec) => {
-                    const isChecked = Boolean(
-                      editingProperty.displaySections?.includes(sec.id) ||
-                        (!editingProperty.displaySections &&
-                          ((sec.id === 'FEATURED' && editingProperty.isFeatured) ||
-                            (sec.id === 'EXCLUSIVE' && editingProperty.isExclusive) ||
-                            (sec.id === 'SPONSORED' && editingProperty.isSponsored) ||
-                            (sec.id === 'COMMERCIAL' &&
-                              (editingProperty.projectType === 'COMMERCIAL' ||
-                                editingProperty.listingType === 'COMMERCIAL')) ||
-                            (sec.id === 'RESIDENTIAL' &&
-                              editingProperty.projectType === 'RESIDENTIAL')))
-                    );
-
-                    const Icon = sec.icon;
-
-                    return (
-                      <label
-                        key={sec.id}
-                        className={`flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer select-none ${
-                          isChecked
-                            ? `${sec.activeBorder} shadow-xs font-semibold ring-1 ring-[#D61F26]/30`
-                            : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50/70 text-gray-700'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={(e) => {
-                            const current = editingProperty.displaySections || [
-                              ...(editingProperty.isFeatured ? ['FEATURED' as const] : []),
-                              ...(editingProperty.isExclusive ? ['EXCLUSIVE' as const] : []),
-                              ...(editingProperty.isSponsored ? ['SPONSORED' as const] : []),
-                              ...(editingProperty.projectType === 'COMMERCIAL' ? ['COMMERCIAL' as const] : []),
-                              ...(editingProperty.projectType === 'RESIDENTIAL' ? ['RESIDENTIAL' as const] : []),
-                            ];
-                            let next: PropertySection[];
-                            if (e.target.checked) {
-                              next = Array.from(new Set([...current, sec.id]));
-                            } else {
-                              next = current.filter((s) => s !== sec.id);
-                            }
+                        <select
+                          value={editingProperty.parking ?? 1}
+                          onChange={(e) =>
                             setEditingProperty({
                               ...editingProperty,
-                              displaySections: next,
-                              isFeatured: next.includes('FEATURED'),
-                              isExclusive: next.includes('EXCLUSIVE'),
-                              isSponsored: next.includes('SPONSORED'),
-                              projectType: next.includes('COMMERCIAL')
-                                ? 'COMMERCIAL'
-                                : next.includes('EXCLUSIVE')
-                                ? 'EXCLUSIVE'
-                                : next.includes('RESIDENTIAL')
-                                ? 'RESIDENTIAL'
-                                : editingProperty.projectType,
-                            });
-                          }}
-                          className="mt-0.5 w-4 h-4 rounded text-[#D61F26] focus:ring-[#D61F26]"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-                            <Icon className="w-3.5 h-3.5 text-[#D61F26] shrink-0" />
-                            <span className="text-xs font-bold text-gray-900">{sec.label}</span>
-                          </div>
-                          <span
-                            className={`inline-block text-[10px] font-bold px-1.5 py-0.2 rounded mb-1 ${sec.badgeColor}`}
-                          >
-                            {sec.location}
-                          </span>
-                          <p className="text-[11px] text-gray-500 line-clamp-2 leading-snug">
-                            {sec.desc}
-                          </p>
-                        </div>
+                              parking: Number(e.target.value),
+                            })
+                          }
+                          className="w-full border border-gray-300 rounded-xl px-2 py-2.5 text-[11px] font-semibold bg-white cursor-pointer"
+                        >
+                          <option value={0}>0 Car</option>
+                          <option value={1}>1 Car</option>
+                          <option value={2}>2 Cars</option>
+                          <option value={3}>3 Cars</option>
+                          <option value={4}>4+ Cars</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Total Numerical Price (₹) */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                        Total Price (₹) <span className="text-[#D61F26]">*</span>
                       </label>
-                    );
-                  })}
+                      <input
+                        type="number"
+                        required
+                        value={editingProperty.price || ''}
+                        onChange={(e) => {
+                          const val = e.target.value ? Number(e.target.value) : 0;
+                          const ar = editingProperty.area || 0;
+                          const ppsq = val > 0 && ar > 0 ? Math.round(val / ar) : editingProperty.pricePerSqFt;
+                          let autoLabel = editingProperty.priceLabel;
+                          if (val > 0 && (!editingProperty.priceLabel || editingProperty.priceLabel.startsWith('₹') || editingProperty.priceLabel.includes('Cr') || editingProperty.priceLabel.includes('Lakh'))) {
+                            if (val >= 10000000) {
+                              autoLabel = `₹${(val / 10000000).toFixed(2).replace(/\.00$/, '')} Cr`;
+                            } else if (val >= 100000) {
+                              autoLabel = `₹${(val / 100000).toFixed(2).replace(/\.00$/, '')} Lakh`;
+                            } else {
+                              autoLabel = `₹${val.toLocaleString('en-IN')}`;
+                            }
+                          }
+                          setEditingProperty({
+                            ...editingProperty,
+                            price: val,
+                            pricePerSqFt: ppsq,
+                            priceLabel: autoLabel,
+                          });
+                        }}
+                        placeholder="14500000"
+                        className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-xs font-bold text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-2 border-t border-gray-100">
+                    {/* Display Price Tag */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                        Display Tag (e.g. ₹1.45 Cr) <span className="text-[#D61F26]">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={editingProperty.priceLabel}
+                        onChange={(e) =>
+                          setEditingProperty({ ...editingProperty, priceLabel: e.target.value })
+                        }
+                        placeholder="e.g. ₹1.45 Cr or ₹45,000 / mo"
+                        className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-xs font-extrabold text-[#D61F26] focus:outline-none focus:border-[#D61F26]"
+                      />
+                    </div>
+
+                    {/* Price per sq ft / unit */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                        Price per {editingProperty.areaUnit || 'Sq.Ft'} (₹)
+                      </label>
+                      <input
+                        type="number"
+                        value={editingProperty.pricePerSqFt ?? ''}
+                        onChange={(e) =>
+                          setEditingProperty({
+                            ...editingProperty,
+                            pricePerSqFt: e.target.value ? Number(e.target.value) : undefined,
+                          })
+                        }
+                        placeholder="8787"
+                        className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-[#D61F26]"
+                      />
+                    </div>
+
+                    {/* Maintenance charges */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                        Maintenance (₹/month)
+                      </label>
+                      <input
+                        type="number"
+                        value={editingProperty.maintenanceCharges ?? ''}
+                        onChange={(e) =>
+                          setEditingProperty({
+                            ...editingProperty,
+                            maintenanceCharges: e.target.value ? Number(e.target.value) : undefined,
+                          })
+                        }
+                        placeholder="3500"
+                        className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-[#D61F26]"
+                      />
+                    </div>
+
+                    {/* Possession Status & Date */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                        Possession Status & Date
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <select
+                          value={editingProperty.possessionStatus || 'READY_TO_MOVE'}
+                          onChange={(e) =>
+                            setEditingProperty({
+                              ...editingProperty,
+                              possessionStatus: e.target.value as any,
+                            })
+                          }
+                          className="w-full border border-gray-300 rounded-xl px-2 py-2.5 text-[11px] font-bold bg-white cursor-pointer"
+                        >
+                          <option value="READY_TO_MOVE">Ready to Move</option>
+                          <option value="UNDER_CONSTRUCTION">Under Const.</option>
+                          <option value="NEW_LAUNCH">New Launch</option>
+                        </select>
+                        <input
+                          type="text"
+                          value={editingProperty.possessionDate || ''}
+                          onChange={(e) =>
+                            setEditingProperty({
+                              ...editingProperty,
+                              possessionDate: e.target.value,
+                            })
+                          }
+                          placeholder="e.g. Ready / Dec 26"
+                          className="w-full border border-gray-300 rounded-xl px-2 py-2.5 text-[11px] focus:outline-none focus:border-[#D61F26]"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Additional Badges (Verified, RERA) */}
-                <div className="flex flex-wrap items-center gap-4 mt-3 pt-3 border-t border-gray-100">
-                  <label className="flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={editingProperty.isVerified}
-                      onChange={(e) =>
-                        setEditingProperty({ ...editingProperty, isVerified: e.target.checked })
-                      }
-                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <span className="flex items-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                      Verified Document Badge
-                    </span>
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 uppercase mb-1">
+                    Main Image URL or Upload
                   </label>
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      value={editingProperty.images[0]?.url || ''}
+                      onChange={(e) => {
+                        const newImgs = [...editingProperty.images];
+                        if (newImgs.length === 0) {
+                          newImgs.push({ url: e.target.value, isPrimary: true });
+                        } else {
+                          newImgs[0] = { ...newImgs[0], url: e.target.value };
+                        }
+                        setEditingProperty({ ...editingProperty, images: newImgs });
+                      }}
+                      placeholder="https://..."
+                      className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3.5 py-2 text-sm text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                    />
+                    <label className="px-3 py-2 bg-gray-800 text-white text-xs font-bold rounded-xl cursor-pointer hover:bg-black shrink-0 flex items-center gap-1">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>Upload</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) =>
+                          handleImageFileUpload(e, (url) => {
+                            const newImgs = [...editingProperty.images];
+                            if (newImgs.length === 0) {
+                              newImgs.push({ url, isPrimary: true });
+                            } else {
+                              newImgs[0] = { ...newImgs[0], url };
+                            }
+                            setEditingProperty({ ...editingProperty, images: newImgs });
+                          })
+                        }
+                      />
+                    </label>
+                  </div>
+                </div>
 
-                  <label className="flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(editingProperty.isReraReg)}
-                      onChange={(e) =>
-                        setEditingProperty({ ...editingProperty, isReraReg: e.target.checked })
-                      }
-                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <span className="flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      RERA Registered Project
-                    </span>
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 uppercase mb-1">
+                    Description
                   </label>
+                  <textarea
+                    rows={3}
+                    value={editingProperty.description}
+                    onChange={(e) =>
+                      setEditingProperty({ ...editingProperty, description: e.target.value })
+                    }
+                    className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3.5 py-2 text-sm font-medium text-gray-900 focus:outline-none focus:border-[#D61F26]"
+                  />
+                </div>
+
+                {/* SECTION-WISE VISIBILITY ASSIGNMENT (Multi-Select) */}
+                <div className="pt-4 pb-2 border-t border-gray-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                    <div>
+                      <label className="text-xs font-black text-gray-900 uppercase tracking-wider flex items-center gap-2">
+                        <Layers className="w-4 h-4 text-[#D61F26]" />
+                        <span>Display In Sections (Section-Wise Multi-Select)</span>
+                        <span className="text-[11px] font-bold text-[#D61F26] bg-red-50 border border-red-200 px-2.5 py-0.5 rounded-full">
+                          {editingProperty.displaySections?.length || 0} Selected
+                        </span>
+                      </label>
+                      <p className="text-[11.5px] text-gray-500 mt-0.5">
+                        Select one or more website sections where this property will appear. The property will strictly show in the chosen sections.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const allSecs: PropertySection[] = [
+                            'FEATURED',
+                            'EXCLUSIVE',
+                            'COMMERCIAL',
+                            'RESIDENTIAL',
+                            'SPONSORED',
+                          ];
+                          setEditingProperty({
+                            ...editingProperty,
+                            displaySections: allSecs,
+                            isFeatured: true,
+                            isExclusive: true,
+                            isSponsored: true,
+                          });
+                        }}
+                        className="px-2.5 py-1 text-[11px] font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors cursor-pointer"
+                      >
+                        Select All
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingProperty({
+                            ...editingProperty,
+                            displaySections: [],
+                            isFeatured: false,
+                            isExclusive: false,
+                            isSponsored: false,
+                          });
+                        }}
+                        className="px-2.5 py-1 text-[11px] font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors cursor-pointer"
+                      >
+                        Clear All
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                    {[
+                      {
+                        id: 'FEATURED' as PropertySection,
+                        label: 'Featured Properties',
+                        location: 'Top of Showcase',
+                        desc: 'Shows inside FEATURED & EXCLUSIVE PROJECTS at top & in Featured tab',
+                        icon: Star,
+                        activeBorder: 'border-amber-400 bg-amber-50/70',
+                        badgeColor: 'bg-amber-100 text-amber-900',
+                      },
+                      {
+                        id: 'EXCLUSIVE' as PropertySection,
+                        label: 'Exclusive Projects',
+                        location: 'Exclusive Showcase',
+                        desc: 'Shows in Exclusive Projects subsection & exclusive projects tab',
+                        icon: Sparkles,
+                        activeBorder: 'border-red-400 bg-red-50/70',
+                        badgeColor: 'bg-red-100 text-[#D61F26]',
+                      },
+                      {
+                        id: 'COMMERCIAL' as PropertySection,
+                        label: 'Commercial Projects',
+                        location: 'Commercial Hub',
+                        desc: 'Shows in Commercial Projects subsection & commercial spaces tab',
+                        icon: Building2,
+                        activeBorder: 'border-blue-400 bg-blue-50/70',
+                        badgeColor: 'bg-blue-100 text-blue-900',
+                      },
+                      {
+                        id: 'RESIDENTIAL' as PropertySection,
+                        label: 'Residential Projects',
+                        location: 'Residential Hub',
+                        desc: 'Shows in Residential Projects subsection & residential tab',
+                        icon: Home,
+                        activeBorder: 'border-emerald-400 bg-emerald-50/70',
+                        badgeColor: 'bg-emerald-100 text-emerald-900',
+                      },
+                      {
+                        id: 'SPONSORED' as PropertySection,
+                        label: 'Sponsored Properties',
+                        location: 'Home Carousel',
+                        desc: 'Shows in Sponsored Properties / Trending picks slider on Home Page',
+                        icon: Megaphone,
+                        activeBorder: 'border-purple-400 bg-purple-50/70',
+                        badgeColor: 'bg-purple-100 text-purple-900',
+                      },
+                    ].map((sec) => {
+                      const isChecked = Boolean(
+                        editingProperty.displaySections?.includes(sec.id) ||
+                          (!editingProperty.displaySections &&
+                            ((sec.id === 'FEATURED' && editingProperty.isFeatured) ||
+                              (sec.id === 'EXCLUSIVE' && editingProperty.isExclusive) ||
+                              (sec.id === 'SPONSORED' && editingProperty.isSponsored) ||
+                              (sec.id === 'COMMERCIAL' &&
+                                (editingProperty.projectType === 'COMMERCIAL' ||
+                                  editingProperty.listingType === 'COMMERCIAL')) ||
+                              (sec.id === 'RESIDENTIAL' &&
+                                editingProperty.projectType === 'RESIDENTIAL')))
+                      );
+
+                      const Icon = sec.icon;
+
+                      return (
+                        <label
+                          key={sec.id}
+                          className={`flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer select-none ${
+                            isChecked
+                              ? `${sec.activeBorder} shadow-xs font-semibold ring-1 ring-[#D61F26]/30`
+                              : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50/70 text-gray-700'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              const current = editingProperty.displaySections || [
+                                ...(editingProperty.isFeatured ? ['FEATURED' as const] : []),
+                                ...(editingProperty.isExclusive ? ['EXCLUSIVE' as const] : []),
+                                ...(editingProperty.isSponsored ? ['SPONSORED' as const] : []),
+                                ...(editingProperty.projectType === 'COMMERCIAL' ? ['COMMERCIAL' as const] : []),
+                                ...(editingProperty.projectType === 'RESIDENTIAL' ? ['RESIDENTIAL' as const] : []),
+                              ];
+                              let next: PropertySection[];
+                              if (e.target.checked) {
+                                next = Array.from(new Set([...current, sec.id]));
+                              } else {
+                                next = current.filter((s) => s !== sec.id);
+                              }
+                              setEditingProperty({
+                                ...editingProperty,
+                                displaySections: next,
+                                isFeatured: next.includes('FEATURED'),
+                                isExclusive: next.includes('EXCLUSIVE'),
+                                isSponsored: next.includes('SPONSORED'),
+                                projectType: next.includes('COMMERCIAL')
+                                  ? 'COMMERCIAL'
+                                  : next.includes('EXCLUSIVE')
+                                  ? 'EXCLUSIVE'
+                                  : next.includes('RESIDENTIAL')
+                                  ? 'RESIDENTIAL'
+                                  : editingProperty.projectType,
+                              });
+                            }}
+                            className="mt-0.5 w-4 h-4 rounded text-[#D61F26] focus:ring-[#D61F26]"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                              <Icon className="w-3.5 h-3.5 text-[#D61F26] shrink-0" />
+                              <span className="text-xs font-bold text-gray-900">{sec.label}</span>
+                            </div>
+                            <span
+                              className={`inline-block text-[10px] font-bold px-1.5 py-0.2 rounded mb-1 ${sec.badgeColor}`}
+                            >
+                              {sec.location}
+                            </span>
+                            <p className="text-[11px] text-gray-500 line-clamp-2 leading-snug">
+                              {sec.desc}
+                            </p>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+
+                  {/* Additional Badges (Verified, RERA) */}
+                  <div className="flex flex-wrap items-center gap-4 mt-3 pt-3 border-t border-gray-100">
+                    <label className="flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editingProperty.isVerified}
+                        onChange={(e) =>
+                          setEditingProperty({ ...editingProperty, isVerified: e.target.checked })
+                        }
+                        className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <span className="flex items-center gap-1">
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                        Verified Document Badge
+                      </span>
+                    </label>
+
+                    <label className="flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(editingProperty.isReraReg)}
+                        onChange={(e) =>
+                          setEditingProperty({ ...editingProperty, isReraReg: e.target.checked })
+                        }
+                        className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <span className="flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        RERA Registered Project
+                      </span>
+                    </label>
+                  </div>
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-gray-200 flex items-center justify-end gap-3">
+              {/* Modal Footer (Pinned) */}
+              <div className="px-5 py-3.5 sm:px-6 bg-gray-50 border-t border-gray-200 flex items-center justify-end gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setEditingProperty(null)}
-                  className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl"
+                  className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl cursor-pointer"
                 >
                   Cancel
                 </button>
