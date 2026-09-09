@@ -1238,14 +1238,14 @@ export class DataService {
     this.broadcastLocal('NEWS_SAVED', { newsItem: item, allNews: updated });
 
     if (isSupabaseConfigured()) {
-      try {
-        const supabase = getSupabaseClient();
-        if (supabase) {
-          const row = toSupabaseNewsRow(item);
-          await supabase.from('news_items').upsert(row, { onConflict: 'id' });
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        const row = toSupabaseNewsRow(item);
+        const { error } = await supabase.from('news_items').upsert(row, { onConflict: 'id' });
+        if (error) {
+          console.error('Supabase save news FAILED:', error);
+          throw new Error(error.message || 'Failed to save article to database');
         }
-      } catch (err) {
-        console.warn('Supabase save news warning:', err);
       }
     }
 
@@ -1261,13 +1261,13 @@ export class DataService {
     this.broadcastLocal('NEWS_DELETED', { id, allNews: updated });
 
     if (isSupabaseConfigured()) {
-      try {
-        const supabase = getSupabaseClient();
-        if (supabase) {
-          await supabase.from('news_items').delete().eq('id', id);
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        const { error } = await supabase.from('news_items').delete().eq('id', id);
+        if (error) {
+          console.error('Supabase delete news FAILED:', error);
+          throw new Error(error.message || 'Failed to delete article from database');
         }
-      } catch (err) {
-        console.warn('Supabase delete news warning:', err);
       }
     }
 

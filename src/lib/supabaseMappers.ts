@@ -248,12 +248,9 @@ export function toSupabaseNewsRow(item: NewsItem): Record<string, any> {
     image: item.image,
     author: item.author || 'The Mars TV News Desk',
     published_at: item.publishedAt || new Date().toISOString(),
-    publishedAt: item.publishedAt || new Date().toISOString(),
     is_featured: Boolean(item.isFeatured),
-    isFeatured: Boolean(item.isFeatured),
     status: item.status || 'PUBLISHED',
     view_count: Number(item.viewCount || 100),
-    viewCount: Number(item.viewCount || 100),
   };
 }
 
