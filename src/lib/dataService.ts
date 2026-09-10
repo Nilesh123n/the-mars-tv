@@ -775,17 +775,19 @@ export class DataService {
   // 1. PROPERTIES (SUPABASE PRIMARY SOURCE OF TRUTH)
   // -----------------------------------------------------------------
   static async getProperties(forceRefresh = false): Promise<Property[]> {
+    // Exact list of seeded demo/sample property IDs to hide from the live site.
+    // IMPORTANT: match must be EXACT (no broad regex here) — a loose pattern like
+    // /^prop-\d{1,2}/ also matches real admin-created IDs such as "prop-1789036526693"
+    // (prop-${Date.now()}), which was silently hiding every newly added property.
+    const MOCK_PROPERTY_IDS = new Set([
+      'prop-1', 'prop-2', 'prop-3', 'prop-4', 'prop-5', 'prop-6', 'prop-7', 'prop-8',
+      'prop-r1', 'prop-r2', 'prop-r3', 'prop-r4', 'prop-r5', 'prop-r6', 'prop-r7', 'prop-r8',
+      'prop-blr-1', 'prop-mum-1', 'prop-del-1', 'prop-hyd-1', 'prop-noi-1', 'prop-lko-1',
+      'prop-pune-r1', 'prop-dxb-1', 'prop-lon-1',
+    ]);
     const isMockPropertyId = (id?: string) => {
       if (!id) return false;
-      return (
-        /^(prop|comm)-(\d{1,2}|r\d+|c\d+|p\d+|blr|mum|del|hyd|noi|lko|pune|dxb|lon)/.test(id) ||
-        [
-          'prop-1', 'prop-2', 'prop-3', 'prop-4', 'prop-5', 'prop-6', 'prop-7', 'prop-8',
-          'prop-r1', 'prop-r2', 'prop-r3', 'prop-r4', 'prop-r5', 'prop-r6', 'prop-r7', 'prop-r8',
-          'prop-blr-1', 'prop-mum-1', 'prop-del-1', 'prop-hyd-1', 'prop-noi-1', 'prop-lko-1',
-          'prop-pune-r1', 'prop-dxb-1', 'prop-lon-1'
-        ].includes(id)
-      );
+      return MOCK_PROPERTY_IDS.has(id);
     };
 
     if (isSupabaseConfigured()) {
@@ -861,20 +863,16 @@ export class DataService {
       status: property.status,
     });
 
+    const MOCK_PROPERTY_IDS_SAVE = new Set([
+      'prop-1', 'prop-2', 'prop-3', 'prop-4', 'prop-5', 'prop-6', 'prop-7', 'prop-8',
+      'prop-r1', 'prop-r2', 'prop-r3', 'prop-r4', 'prop-r5', 'prop-r6', 'prop-r7', 'prop-r8',
+      'prop-blr-1', 'prop-mum-1', 'prop-del-1', 'prop-hyd-1', 'prop-noi-1', 'prop-lko-1',
+      'prop-pune-r1', 'prop-dxb-1', 'prop-lon-1',
+    ]);
     const isMockPropertyId = (id?: string) => {
       if (!id) return false;
-      return (
-        /^(prop|comm)-(\d{1,2}|r\d+|c\d+|p\d+|blr|mum|del|hyd|noi|lko|pune|dxb|lon)/.test(id) ||
-        [
-          'prop-1', 'prop-2', 'prop-3', 'prop-4', 'prop-5', 'prop-6', 'prop-7', 'prop-8',
-          'prop-r1', 'prop-r2', 'prop-r3', 'prop-r4', 'prop-r5', 'prop-r6', 'prop-r7', 'prop-r8',
-          'prop-blr-1', 'prop-mum-1', 'prop-del-1', 'prop-hyd-1', 'prop-noi-1', 'prop-lko-1',
-          'prop-pune-r1', 'prop-dxb-1', 'prop-lon-1'
-        ].includes(id)
-      );
+      return MOCK_PROPERTY_IDS_SAVE.has(id);
     };
-
-    // ── Step 1: Pehle LOCAL cache/state update karo (instant) ──
     const current = (memoryCache.properties?.data || 
       readFromStorage<Property[]>('pr_properties_v2')?.data || 
       initialProperties).filter((p) => !isMockPropertyId(p.id));
