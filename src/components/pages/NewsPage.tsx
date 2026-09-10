@@ -74,6 +74,9 @@ export default function NewsPage({
       const targetLower = selectedSubCategory.toLowerCase();
       matchesSub =
         catLower === targetLower ||
+        catLower.includes(targetLower) ||
+        (selectedSubCategory === 'Market Trends' && (catLower.includes('trend') || catLower.includes('market'))) ||
+        (selectedSubCategory === 'Market News' && (catLower.includes('market') || catLower.includes('news'))) ||
         (selectedSubCategory === 'Latest Update' &&
           (catLower.includes('update') || catLower.includes('policy') || catLower.includes('latest')));
     }
@@ -270,11 +273,14 @@ export default function NewsPage({
                     className="bg-white rounded-[20px] overflow-hidden border border-gray-200/90 shadow-[0_4px_20px_rgba(0,0,0,0.05)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.12)] hover:-translate-y-0.5 transition-all duration-300 flex flex-col sm:flex-row group cursor-pointer"
                   >
                     {/* Left Side: 16:9 Image Box - Seamlessly fitted into card without black/gray space */}
-                    <div className="relative w-full sm:w-[340px] md:w-[380px] lg:w-[420px] shrink-0 aspect-[16/9] overflow-hidden">
+                    <div className="relative w-full sm:w-[340px] md:w-[380px] lg:w-[420px] shrink-0 aspect-[16/9] overflow-hidden bg-gray-100">
                       <img
-                        src={item.image}
+                        src={item.image || 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1200&q=80'}
                         alt={item.title}
                         className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1200&q=80';
+                        }}
                       />
                     </div>
 

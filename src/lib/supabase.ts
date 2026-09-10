@@ -9,23 +9,47 @@ let supabaseInstance: SupabaseClient | null = null;
 // Ye fallback isliye zaroori hai kyunki VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY build ke
 // time set nahi ho rahe the, isliye admin ke browser ke alawa kisi aur device par app
 // Supabase se connect hi nahi ho raha tha aur sirf dummy/mock data dikha raha tha.
-const FALLBACK_SUPABASE_URL = 'https://YOUR-PROJECT-REF.supabase.co';
-const FALLBACK_SUPABASE_ANON_KEY = 'YOUR-ANON-PUBLIC-KEY-HERE';
+const FALLBACK_SUPABASE_URL = 'https://ioegwhawffdwnqltdyec.supabase.co';
+const FALLBACK_SUPABASE_ANON_KEY = 'sb_publishable_dymm9e67PvyYWarL6x3HDA_wfIgEIXQ';
 
 export function getSupabaseCredentials() {
   const customUrl = localStorage.getItem('supabase_url');
   const customKey = localStorage.getItem('supabase_anon_key');
 
   const env = (import.meta as any).env || {};
-  const url = customUrl || env.VITE_SUPABASE_URL || FALLBACK_SUPABASE_URL;
-  const key = customKey || env.VITE_SUPABASE_ANON_KEY || FALLBACK_SUPABASE_ANON_KEY;
+
+  // Validate customUrl & customKey so placeholder strings or broken values are safely ignored
+  const isCustomUrlValid = Boolean(
+    customUrl &&
+    customUrl.startsWith('http') &&
+    !customUrl.includes('YOUR-PROJECT-REF') &&
+    !customUrl.includes('your-project')
+  );
+  const isCustomKeyValid = Boolean(
+    customKey &&
+    customKey.length > 10 &&
+    !customKey.includes('YOUR-ANON') &&
+    !customKey.includes('your-anon')
+  );
+
+  const url = (isCustomUrlValid ? customUrl : null) || env.VITE_SUPABASE_URL || FALLBACK_SUPABASE_URL;
+  const key = (isCustomKeyValid ? customKey : null) || env.VITE_SUPABASE_ANON_KEY || FALLBACK_SUPABASE_ANON_KEY;
 
   return { url, key };
 }
 
 export function isSupabaseConfigured(): boolean {
   const { url, key } = getSupabaseCredentials();
-  return Boolean(url && key && url.startsWith('http') && key.length > 10);
+  return Boolean(
+    url &&
+    key &&
+    url.startsWith('http') &&
+    !url.includes('YOUR-PROJECT-REF') &&
+    !url.includes('your-project') &&
+    key.length > 10 &&
+    !key.includes('YOUR-ANON') &&
+    !key.includes('your-anon')
+  );
 }
 
 export function getSupabaseClient(): SupabaseClient | null {
@@ -55,34 +79,87 @@ export function saveSupabaseConfig(url: string, key: string) {
 }
 
 // -----------------------------------------------------------------
+// Compress image before storage or base64 saving to avoid oversized payloads
+// Converts multi-MB files down to lightweight ~40-80KB WebP/JPEG (max 1280x720)
+// -----------------------------------------------------------------
+export async function compressImageFile(
+  file: File,
+  maxWidth = 1280,
+  maxHeight = 720,
+  quality = 0.82
+): Promise<{ blob: Blob; dataUrl: string }> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                resolve({ blob, dataUrl });
+              } else {
+                resolve({ blob: file, dataUrl: (e.target?.result as string) || '' });
+              }
+            },
+            'image/jpeg',
+            quality
+          );
+        } else {
+          resolve({ blob: file, dataUrl: (e.target?.result as string) || '' });
+        }
+      };
+      img.onerror = () => {
+        resolve({ blob: file, dataUrl: (e.target?.result as string) || '' });
+      };
+      img.src = (e.target?.result as string) || '';
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// -----------------------------------------------------------------
 // Upload a file to Supabase Storage and return its public URL.
-// Used instead of embedding images as base64 text directly in DB rows
-// (base64 images were making rows huge and causing query timeouts).
-// Requires a public Storage bucket named "media" to exist (see setup steps).
+// Used instead of embedding images as large base64 text directly in DB rows.
+// Requires a public Storage bucket named "media" to exist.
+// If the bucket doesn't exist, returns null so caller uses compressed dataUrl.
 // -----------------------------------------------------------------
 export async function uploadImageToStorage(file: File, folder: string = 'news'): Promise<string | null> {
   const supabase = getSupabaseClient();
   if (!supabase) return null;
 
   try {
-    const ext = file.name.split('.').pop() || 'jpg';
+    const { blob } = await compressImageFile(file, 1280, 720, 0.82);
+    const ext = 'jpg';
     const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
-    const { error } = await supabase.storage.from('media').upload(path, file, {
+    const { error } = await supabase.storage.from('media').upload(path, blob, {
       cacheControl: '31536000',
       upsert: false,
-      contentType: file.type || 'image/jpeg',
+      contentType: 'image/jpeg',
     });
 
     if (error) {
-      console.error('[Storage] Upload failed:', error);
+      console.warn('[Storage] Upload to media bucket failed (using compressed fallback):', error.message);
       return null;
     }
 
     const { data } = supabase.storage.from('media').getPublicUrl(path);
     return data.publicUrl;
   } catch (err) {
-    console.error('[Storage] Upload exception:', err);
+    console.warn('[Storage] Upload exception (using compressed fallback):', err);
     return null;
   }
 }

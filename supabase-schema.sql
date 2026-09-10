@@ -363,3 +363,15 @@ CREATE INDEX IF NOT EXISTS idx_properties_city ON public.properties (city);
 CREATE INDEX IF NOT EXISTS idx_properties_created_at ON public.properties (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_news_published_at ON public.news_items (published_at DESC);
 CREATE INDEX IF NOT EXISTS idx_leads_created_at ON public.leads (created_at DESC);
+
+-- =========================================================================
+-- STORAGE BUCKET SETUP (For public image & media uploads)
+-- =========================================================================
+INSERT INTO storage.buckets (id, name, public) VALUES ('media', 'media', true) ON CONFLICT (id) DO NOTHING;
+DROP POLICY IF EXISTS "Public Storage Read" ON storage.objects;
+CREATE POLICY "Public Storage Read" ON storage.objects FOR SELECT USING (bucket_id = 'media');
+DROP POLICY IF EXISTS "Public Storage Write" ON storage.objects;
+CREATE POLICY "Public Storage Write" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'media');
+DROP POLICY IF EXISTS "Public Storage Update" ON storage.objects;
+CREATE POLICY "Public Storage Update" ON storage.objects FOR UPDATE USING (bucket_id = 'media');
+

@@ -82,7 +82,7 @@ export default function App() {
 
         if (isMounted) {
           if (pData?.length) setProperties(pData);
-          if (nData?.length) setNewsItems(nData);
+          if (Array.isArray(nData)) setNewsItems(nData);
           if (prData?.length) setPRServices(prData);
           if (lData?.length) setLeads(lData);
           if (pkgData?.length) setConstructionPackages(pkgData);

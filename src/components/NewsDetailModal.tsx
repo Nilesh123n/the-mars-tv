@@ -153,9 +153,12 @@ export default function NewsDetailModal({ news, onClose }: NewsDetailModalProps)
           {/* Hero Banner Image */}
           <div className="w-full aspect-[16/9] rounded-[20px] overflow-hidden shadow-md bg-gray-100 border border-gray-200/60">
             <img
-              src={news.image}
+              src={news.image || 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1200&q=80'}
               alt={news.title}
               className="w-full h-full object-cover object-center"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1200&q=80';
+              }}
             />
           </div>
 

@@ -29,13 +29,17 @@ export default function LatestNews({
         const catLower = (n.category || '').toLowerCase();
         const selLower = selectedCategory.toLowerCase();
         return (
+          catLower === selLower ||
           catLower.includes(selLower) ||
-          (selectedCategory === 'Latest Update' && (catLower.includes('update') || catLower.includes('policy')))
+          (selectedCategory === 'Market Trends' && (catLower.includes('trend') || catLower.includes('market'))) ||
+          (selectedCategory === 'Latest Update' && (catLower.includes('update') || catLower.includes('policy') || catLower.includes('latest'))) ||
+          (selectedCategory === 'India News' && (n.region === 'India' || catLower.includes('india'))) ||
+          (selectedCategory === 'International News' && (n.region === 'International' || catLower.includes('international') || catLower.includes('global')))
         );
       });
 
-  // Take exactly 2 items for every category tab
-  const displayItems = filteredItems.slice(0, 2);
+  // Display top recent news items (up to 6)
+  const displayItems = filteredItems.slice(0, 6);
 
   return (
     <section className="py-14 bg-[#F8F9FA] border-b border-gray-200/80">
@@ -101,11 +105,14 @@ export default function LatestNews({
                 className="bg-white rounded-[20px] overflow-hidden border border-gray-200/90 shadow-[0_4px_20px_rgba(0,0,0,0.05)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.1)] hover:-translate-y-0.5 transition-all duration-300 flex flex-col sm:flex-row group cursor-pointer"
               >
                 {/* Left Side 16:9 Image - Seamlessly fitted into card without black/gray space */}
-                <div className="relative w-full sm:w-[340px] md:w-[380px] lg:w-[420px] aspect-[16/9] flex-shrink-0 overflow-hidden">
+                <div className="relative w-full sm:w-[340px] md:w-[380px] lg:w-[420px] aspect-[16/9] flex-shrink-0 overflow-hidden bg-gray-100">
                   <img
-                    src={item.image}
+                    src={item.image || 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1200&q=80'}
                     alt={item.title}
                     className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1200&q=80';
+                    }}
                   />
                 </div>
 

@@ -1171,6 +1171,19 @@ export class DataService {
   // 2. NEWS ITEMS (SUPABASE REALTIME SYNC)
   // -----------------------------------------------------------------
   static async getNews(forceRefresh = false): Promise<NewsItem[]> {
+    const isMockNewsId = (id?: string) => {
+      if (!id) return false;
+      return (
+        id.startsWith('news-in-') ||
+        id.startsWith('news-intl-') ||
+        id.startsWith('news-blr-') ||
+        id.startsWith('news-mum-') ||
+        id.startsWith('news-ncr-') ||
+        id.startsWith('news-hyd-') ||
+        ['news-1', 'news-2', 'news-3', 'news-4', 'news-5'].includes(id)
+      );
+    };
+
     if (isSupabaseConfigured()) {
       try {
         const supabase = getSupabaseClient();
@@ -1186,8 +1199,10 @@ export class DataService {
             error = fallbackRes.error;
           }
 
-          if (!error && data && data.length > 0) {
-            const newsList: NewsItem[] = data.map(fromSupabaseNewsRow);
+          if (!error && Array.isArray(data)) {
+            const newsList: NewsItem[] = data
+              .map(fromSupabaseNewsRow)
+              .filter((n) => !isMockNewsId(n.id));
             memoryCache.news = { data: newsList, timestamp: Date.now() };
             saveToStorage('pr_news_v2', newsList);
             return newsList;
@@ -1199,16 +1214,20 @@ export class DataService {
     }
 
     if (!forceRefresh && memoryCache.news && Date.now() - memoryCache.news.timestamp < CACHE_TTL_MS) {
-      return memoryCache.news.data;
+      const filteredMem = (memoryCache.news.data || []).filter((n) => !isMockNewsId(n.id));
+      return filteredMem;
     }
 
     const stored = readFromStorage<NewsItem[]>('pr_news_v2');
+    const cleanedStored = (stored?.data || []).filter((n) => !isMockNewsId(n.id));
+
     if (!forceRefresh && stored && Date.now() - stored.timestamp < CACHE_TTL_MS) {
-      memoryCache.news = stored;
-      return stored.data;
+      memoryCache.news = { data: cleanedStored, timestamp: stored.timestamp };
+      return cleanedStored;
     }
 
-    let result: NewsItem[] = stored?.data || initialNews;
+    // Default to stored items or empty list (never populate mock demo news)
+    let result: NewsItem[] = cleanedStored;
     result = result.map((item) => {
       if (item.category === 'Policy Update' || item.category === 'Policy Updates') {
         return { ...item, category: 'Latest Update' };
@@ -2008,6 +2027,15 @@ ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS youtube_url TEXT;
 ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS video_url TEXT;
 ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS youtube_url TEXT;
 ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS images JSONB DEFAULT '[]'::jsonb;
+
+-- 11. STORAGE BUCKET SETUP FOR MEDIA UPLOADS
+INSERT INTO storage.buckets (id, name, public) VALUES ('media', 'media', true) ON CONFLICT (id) DO NOTHING;
+DROP POLICY IF EXISTS "Public Storage Read" ON storage.objects;
+CREATE POLICY "Public Storage Read" ON storage.objects FOR SELECT USING (bucket_id = 'media');
+DROP POLICY IF EXISTS "Public Storage Write" ON storage.objects;
+CREATE POLICY "Public Storage Write" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'media');
+DROP POLICY IF EXISTS "Public Storage Update" ON storage.objects;
+CREATE POLICY "Public Storage Update" ON storage.objects FOR UPDATE USING (bucket_id = 'media');
 `;
   }
 }
