@@ -61,6 +61,8 @@ CREATE TABLE IF NOT EXISTS public.properties (
 );
 
 -- Ensure all property columns exist
+ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS video_url TEXT;
+ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS youtube_url TEXT;
 ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS submission_id TEXT;
 ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS sub_category TEXT;
 ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS locality TEXT;
@@ -232,6 +234,11 @@ CREATE TABLE IF NOT EXISTS public.projects (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     createdAt TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Ensure all project columns exist
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS video_url TEXT;
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS youtube_url TEXT;
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS images JSONB DEFAULT '[]'::jsonb;
 
 -- =========================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES (Allows Full Read & Write via Anon Key)

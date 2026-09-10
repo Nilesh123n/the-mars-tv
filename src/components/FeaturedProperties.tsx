@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Property } from '../types';
-import { Heart, BedDouble, Car, Maximize2, MapPin, CheckCircle } from 'lucide-react';
+import { Heart, BedDouble, Car, Maximize2, MapPin, CheckCircle, Play } from 'lucide-react';
 
 interface FeaturedPropertiesProps {
   properties: Property[];
@@ -76,35 +76,52 @@ export default function FeaturedProperties({
         </div>
 
         {/* Grid Cards - 4 columns on desktop & desktop site mode */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
-          {filteredProperties.slice(0, 8).map((property) => {
-            const isSaved = wishlist?.includes(property.id) ?? false;
-            const primaryImg = property.images.find((img) => img.isPrimary)?.url || property.images[0]?.url;
+        {filteredProperties.length === 0 ? (
+          <div className="bg-white rounded-2xl p-10 text-center border border-gray-200 shadow-xs">
+            <p className="text-gray-500 text-sm font-medium">
+              No featured properties currently found. Add or mark properties as Featured in the Admin Panel to display them here.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
+            {filteredProperties.slice(0, 8).map((property) => {
+              const isSaved = wishlist?.includes(property.id) ?? false;
+              const primaryImg = property.images.find((img) => img.isPrimary)?.url || property.images[0]?.url;
 
-            return (
-              <div
-                key={property.id}
-                className="bg-white rounded-[18px] overflow-hidden border border-gray-200/90 shadow-[0_4px_20px_rgba(0,0,0,0.05)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.12)] hover:-translate-y-1 transition-all duration-300 flex flex-col group"
-              >
-                {/* Image */}
-                <div className="relative h-[210px] overflow-hidden bg-gray-100">
-                  <img
-                    src={primaryImg}
-                    alt={property.title}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                  
-                  <div className="absolute top-3 left-3 flex items-center gap-1.5">
-                    <span className="bg-[#FF8C00] text-white text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider shadow-md">
-                      Featured
-                    </span>
-                    {property.isVerified && (
-                      <span className="bg-emerald-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider flex items-center gap-1 shadow-md">
-                        <CheckCircle className="w-3 h-3" />
-                        Verified
+              return (
+                <div
+                  key={property.id}
+                  onClick={() => onSelectProperty(property)}
+                  className="bg-white rounded-[18px] overflow-hidden border border-gray-200/90 shadow-[0_4px_20px_rgba(0,0,0,0.05)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.12)] hover:-translate-y-1 transition-all duration-300 flex flex-col group cursor-pointer"
+                >
+                  {/* Image */}
+                  <div className="relative h-[210px] overflow-hidden bg-gray-100">
+                    <img
+                      src={primaryImg || 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200&q=80'}
+                      alt={property.title}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200&q=80';
+                      }}
+                    />
+                    
+                    <div className="absolute top-3 left-3 flex items-center gap-1.5 flex-wrap">
+                      <span className="bg-[#FF8C00] text-white text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider shadow-md">
+                        Featured
                       </span>
-                    )}
-                  </div>
+                      {property.isVerified && (
+                        <span className="bg-emerald-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider flex items-center gap-1 shadow-md">
+                          <CheckCircle className="w-3 h-3" />
+                          Verified
+                        </span>
+                      )}
+                      {(property.youtubeUrl || property.videoUrl) && (
+                        <span className="bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider flex items-center gap-1 shadow-md animate-pulse">
+                          <Play className="w-2.5 h-2.5 fill-white" />
+                          Video Tour
+                        </span>
+                      )}
+                    </div>
 
                   {/* Wishlist button */}
                   <button
@@ -181,6 +198,7 @@ export default function FeaturedProperties({
             );
           })}
         </div>
+      )}
 
         {/* View All Properties Bar */}
         <div className="mt-10 text-center">

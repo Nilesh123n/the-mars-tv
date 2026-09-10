@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Property } from '../../types';
-import { Heart, MapPin, Building2, Maximize2, Search, SlidersHorizontal, ShieldCheck } from 'lucide-react';
+import { Heart, MapPin, Building2, Maximize2, Search, SlidersHorizontal, ShieldCheck, Play } from 'lucide-react';
 import LocationFilterBar, { LocationFilterSelection } from '../common/LocationFilterBar';
 import { checkLocationMatch } from '../../data/locationHierarchy';
 
@@ -150,14 +150,28 @@ export default function CommercialPage({
               return (
                 <div
                   key={property.id}
-                  className="bg-white rounded-[20px] overflow-hidden border border-gray-200/90 shadow-[0_4px_20px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.12)] hover:-translate-y-1 transition-all duration-300 flex flex-col group"
+                  onClick={() => onSelectProperty(property)}
+                  className="bg-white rounded-[20px] overflow-hidden border border-gray-200/90 shadow-[0_4px_20px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.12)] hover:-translate-y-1 transition-all duration-300 flex flex-col group cursor-pointer"
                 >
                   <div className="relative h-[220px] overflow-hidden bg-gray-100">
-                    <img src={primaryImg} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                    <div className="absolute top-3 left-3 flex items-center gap-1.5">
+                    <img 
+                      src={primaryImg || 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200&q=80'} 
+                      alt={property.title} 
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200&q=80';
+                      }}
+                    />
+                    <div className="absolute top-3 left-3 flex items-center gap-1.5 flex-wrap">
                       <span className="bg-blue-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-md uppercase">
                         Commercial {property.propertyType}
                       </span>
+                      {(property.youtubeUrl || property.videoUrl) && (
+                        <span className="bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wide flex items-center gap-1 shadow-md animate-pulse">
+                          <Play className="w-2.5 h-2.5 fill-white" />
+                          Video Tour
+                        </span>
+                      )}
                     </div>
 
                     <button

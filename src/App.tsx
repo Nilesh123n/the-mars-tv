@@ -81,13 +81,13 @@ export default function App() {
         ]);
 
         if (isMounted) {
-          if (pData?.length) setProperties(pData);
+          if (Array.isArray(pData)) setProperties(pData);
           if (Array.isArray(nData)) setNewsItems(nData);
           if (prData?.length) setPRServices(prData);
           if (lData?.length) setLeads(lData);
           if (pkgData?.length) setConstructionPackages(pkgData);
           if (settingsData) setSiteSettings(settingsData);
-          if (projData?.length) setProjects(projData);
+          if (Array.isArray(projData)) setProjects(projData);
         }
       } catch (err) {
         console.warn('Initial data load warning:', err);
@@ -209,7 +209,7 @@ export default function App() {
   };
 
   // User Wishlist
-  const [wishlist, setWishlist] = useState<string[]>(['prop-1', 'prop-2']);
+  const [wishlist, setWishlist] = useState<string[]>([]);
 
   // Modals & Drawers
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);

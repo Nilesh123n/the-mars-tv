@@ -775,6 +775,19 @@ export class DataService {
   // 1. PROPERTIES (SUPABASE PRIMARY SOURCE OF TRUTH)
   // -----------------------------------------------------------------
   static async getProperties(forceRefresh = false): Promise<Property[]> {
+    const isMockPropertyId = (id?: string) => {
+      if (!id) return false;
+      return (
+        /^(prop|comm)-(\d{1,2}|r\d+|c\d+|p\d+|blr|mum|del|hyd|noi|lko|pune|dxb|lon)/.test(id) ||
+        [
+          'prop-1', 'prop-2', 'prop-3', 'prop-4', 'prop-5', 'prop-6', 'prop-7', 'prop-8',
+          'prop-r1', 'prop-r2', 'prop-r3', 'prop-r4', 'prop-r5', 'prop-r6', 'prop-r7', 'prop-r8',
+          'prop-blr-1', 'prop-mum-1', 'prop-del-1', 'prop-hyd-1', 'prop-noi-1', 'prop-lko-1',
+          'prop-pune-r1', 'prop-dxb-1', 'prop-lon-1'
+        ].includes(id)
+      );
+    };
+
     if (isSupabaseConfigured()) {
       try {
         const supabase = getSupabaseClient();
@@ -794,9 +807,11 @@ export class DataService {
             error = fallbackRes.error;
           }
 
-          if (!error && data) {
-            // ✅ Error nahi — data use karo
-            const propertiesList: Property[] = data.map(fromSupabaseRow);
+          if (!error && Array.isArray(data)) {
+            // ✅ Error nahi — data use karo (filtering out mock properties)
+            const propertiesList: Property[] = data
+              .map(fromSupabaseRow)
+              .filter((p) => !isMockPropertyId(p.id));
             memoryCache.properties = { 
               data: propertiesList, 
               timestamp: Date.now() 
@@ -817,23 +832,26 @@ export class DataService {
       }
     }
 
-    // Cache / localStorage fallback (yeh ab hamesha available hai)
+    // Cache / localStorage fallback
     if (!forceRefresh && 
         memoryCache.properties && 
         Date.now() - memoryCache.properties.timestamp < CACHE_TTL_MS) {
-      return memoryCache.properties.data;
+      const filteredMem = (memoryCache.properties.data || []).filter((p) => !isMockPropertyId(p.id));
+      return filteredMem;
     }
 
     const stored = readFromStorage<Property[]>('pr_properties_v2');
-    if (!forceRefresh && stored?.data?.length) {
-      memoryCache.properties = stored;
-      return stored.data;
+    const cleanedStored = (stored?.data || []).filter((p) => !isMockPropertyId(p.id));
+
+    if (!forceRefresh && stored && Date.now() - stored.timestamp < CACHE_TTL_MS) {
+      memoryCache.properties = { data: cleanedStored, timestamp: stored.timestamp };
+      return cleanedStored;
     }
 
-    const fallback = stored?.data?.length ? stored.data : initialProperties;
-    memoryCache.properties = { data: fallback, timestamp: Date.now() };
-    saveToStorage('pr_properties_v2', fallback);
-    return fallback;
+    // Default to stored items or empty list (never populate mock demo properties)
+    memoryCache.properties = { data: cleanedStored, timestamp: Date.now() };
+    saveToStorage('pr_properties_v2', cleanedStored);
+    return cleanedStored;
   }
 
   static async saveProperty(property: Property): Promise<Property[]> {
@@ -843,10 +861,23 @@ export class DataService {
       status: property.status,
     });
 
+    const isMockPropertyId = (id?: string) => {
+      if (!id) return false;
+      return (
+        /^(prop|comm)-(\d{1,2}|r\d+|c\d+|p\d+|blr|mum|del|hyd|noi|lko|pune|dxb|lon)/.test(id) ||
+        [
+          'prop-1', 'prop-2', 'prop-3', 'prop-4', 'prop-5', 'prop-6', 'prop-7', 'prop-8',
+          'prop-r1', 'prop-r2', 'prop-r3', 'prop-r4', 'prop-r5', 'prop-r6', 'prop-r7', 'prop-r8',
+          'prop-blr-1', 'prop-mum-1', 'prop-del-1', 'prop-hyd-1', 'prop-noi-1', 'prop-lko-1',
+          'prop-pune-r1', 'prop-dxb-1', 'prop-lon-1'
+        ].includes(id)
+      );
+    };
+
     // ── Step 1: Pehle LOCAL cache/state update karo (instant) ──
-    const current = memoryCache.properties?.data || 
+    const current = (memoryCache.properties?.data || 
       readFromStorage<Property[]>('pr_properties_v2')?.data || 
-      initialProperties;
+      initialProperties).filter((p) => !isMockPropertyId(p.id));
       
     const index = current.findIndex((p) => p.id === property.id);
     let localUpdated: Property[];
@@ -1632,13 +1663,20 @@ export class DataService {
   // 7. EXCLUSIVE PROJECTS (SUPABASE REALTIME SYNC)
   // -----------------------------------------------------------------
   static async getProjects(forceRefresh = false): Promise<Project[]> {
+    const isMockProjectId = (id?: string) => {
+      if (!id) return false;
+      return /^proj-(\d{1,2}|[a-z]+)/.test(id) && !/^proj-\d{10,}/.test(id);
+    };
+
     if (isSupabaseConfigured()) {
       try {
         const supabase = getSupabaseClient();
         if (supabase) {
           const { data, error } = await supabase.from('projects').select('*');
-          if (!error && data && data.length > 0) {
-            const list: Project[] = data.map(fromSupabaseProjectRow);
+          if (!error && Array.isArray(data)) {
+            const list: Project[] = data
+              .map(fromSupabaseProjectRow)
+              .filter((p) => !isMockProjectId(p.id));
             memoryCache.projects = { data: list, timestamp: Date.now() };
             saveToStorage('pr_projects_v2', list);
             return list;
@@ -1650,19 +1688,20 @@ export class DataService {
     }
 
     if (!forceRefresh && memoryCache.projects && Date.now() - memoryCache.projects.timestamp < CACHE_TTL_MS) {
-      return memoryCache.projects.data;
+      return (memoryCache.projects.data || []).filter((p) => !isMockProjectId(p.id));
     }
 
     const stored = readFromStorage<Project[]>('pr_projects_v2');
+    const cleanedStored = (stored?.data || []).filter((p) => !isMockProjectId(p.id));
+
     if (!forceRefresh && stored && Date.now() - stored.timestamp < CACHE_TTL_MS) {
-      memoryCache.projects = stored;
-      return stored.data;
+      memoryCache.projects = { data: cleanedStored, timestamp: stored.timestamp };
+      return cleanedStored;
     }
 
-    let result: Project[] = stored?.data || initialProjects;
-    memoryCache.projects = { data: result, timestamp: Date.now() };
-    saveToStorage('pr_projects_v2', result);
-    return result;
+    memoryCache.projects = { data: cleanedStored, timestamp: Date.now() };
+    saveToStorage('pr_projects_v2', cleanedStored);
+    return cleanedStored;
   }
 
   static async saveProject(project: Project): Promise<Project[]> {

@@ -16,7 +16,8 @@ import {
   ArrowRight,
   PhoneCall,
   Home,
-  Briefcase
+  Briefcase,
+  Play
 } from 'lucide-react';
 import LocationFilterBar, { LocationFilterSelection } from '../common/LocationFilterBar';
 import { checkLocationMatch } from '../../data/locationHierarchy';
@@ -291,9 +292,12 @@ export default function RentPage({
                   {/* Image Container */}
                   <div className="relative h-[220px] overflow-hidden bg-gray-100">
                     <img
-                      src={primaryImg}
+                      src={primaryImg || 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200&q=80'}
                       alt={property.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200&q=80';
+                      }}
                     />
 
                     {/* Category & Rent Badges */}
@@ -304,6 +308,12 @@ export default function RentPage({
                       <span className="bg-emerald-600 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-md uppercase tracking-wider shadow">
                         FOR RENT
                       </span>
+                      {(property.youtubeUrl || property.videoUrl) && (
+                        <span className="bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wide flex items-center gap-1 shadow-md animate-pulse">
+                          <Play className="w-2.5 h-2.5 fill-white" />
+                          Video Tour
+                        </span>
+                      )}
                     </div>
 
                     {/* Wishlist Button */}
