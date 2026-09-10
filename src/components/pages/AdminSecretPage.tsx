@@ -67,7 +67,7 @@ import ArticleRenderer from '../ArticleRenderer';
 import { getYouTubeEmbedUrl, extractYouTubeId } from '../../lib/videoUtils';
 import { Property, PropertySection, NewsItem, PRServiceItem, Lead, PropertyType, ListingType, PropertyStatus, ConstructionPackage, SiteSettings, LeadStatus } from '../../types';
 import { DataService } from '../../lib/dataService';
-import { isSupabaseConfigured, getSupabaseCredentials, saveSupabaseConfig } from '../../lib/supabase';
+import { isSupabaseConfigured, getSupabaseCredentials, saveSupabaseConfig, uploadImageToStorage } from '../../lib/supabase';
 import { useDebounce } from '../../hooks/useDebounce';
 import LocationFilterBar, { LocationFilterSelection } from '../common/LocationFilterBar';
 import {
@@ -369,18 +369,31 @@ export default function AdminSecretPage({
     setTimeout(() => setCopiedSchema(false), 3000);
   };
 
-  const handleImageFileUpload = (e: ChangeEvent<HTMLInputElement>, callback: (url: string) => void) => {
+  const handleImageFileUpload = async (e: ChangeEvent<HTMLInputElement>, callback: (url: string) => void) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
       showToast('Please select a valid image file (JPG, PNG, WebP, etc.).');
       return;
     }
+
+    // Preferred path: upload to Supabase Storage, save only a small public URL in DB.
+    // (Previously images were embedded as base64 text directly in the database,
+    // which made rows huge and caused "statement timeout" errors on read.)
+    const uploadedUrl = await uploadImageToStorage(file, 'news');
+    if (uploadedUrl) {
+      callback(uploadedUrl);
+      showToast('Image uploaded successfully!');
+      return;
+    }
+
+    // Fallback (Storage bucket missing/misconfigured): warn instead of silently
+    // bloating the database with base64 again.
+    showToast('Storage upload failed — check that the "media" bucket exists in Supabase. Falling back to embedded image (not recommended for large files).');
     const reader = new FileReader();
     reader.onload = (event) => {
       if (event.target?.result) {
         callback(event.target.result as string);
-        showToast('Image uploaded successfully!');
       }
     };
     reader.readAsDataURL(file);

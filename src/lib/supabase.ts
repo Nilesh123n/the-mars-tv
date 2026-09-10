@@ -9,8 +9,8 @@ let supabaseInstance: SupabaseClient | null = null;
 // Ye fallback isliye zaroori hai kyunki VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY build ke
 // time set nahi ho rahe the, isliye admin ke browser ke alawa kisi aur device par app
 // Supabase se connect hi nahi ho raha tha aur sirf dummy/mock data dikha raha tha.
-const FALLBACK_SUPABASE_URL = 'https://ioegwhawffdwnqltdyec.supabase.co';
-const FALLBACK_SUPABASE_ANON_KEY = 'sb_publishable_dymm9e67PvyYWarL6x3HDA_wfIgEIXQ';
+const FALLBACK_SUPABASE_URL = 'https://YOUR-PROJECT-REF.supabase.co';
+const FALLBACK_SUPABASE_ANON_KEY = 'YOUR-ANON-PUBLIC-KEY-HERE';
 
 export function getSupabaseCredentials() {
   const customUrl = localStorage.getItem('supabase_url');
@@ -52,4 +52,37 @@ export function saveSupabaseConfig(url: string, key: string) {
 
   // Reset instance so next call uses updated credentials
   supabaseInstance = null;
+}
+
+// -----------------------------------------------------------------
+// Upload a file to Supabase Storage and return its public URL.
+// Used instead of embedding images as base64 text directly in DB rows
+// (base64 images were making rows huge and causing query timeouts).
+// Requires a public Storage bucket named "media" to exist (see setup steps).
+// -----------------------------------------------------------------
+export async function uploadImageToStorage(file: File, folder: string = 'news'): Promise<string | null> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return null;
+
+  try {
+    const ext = file.name.split('.').pop() || 'jpg';
+    const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+    const { error } = await supabase.storage.from('media').upload(path, file, {
+      cacheControl: '31536000',
+      upsert: false,
+      contentType: file.type || 'image/jpeg',
+    });
+
+    if (error) {
+      console.error('[Storage] Upload failed:', error);
+      return null;
+    }
+
+    const { data } = supabase.storage.from('media').getPublicUrl(path);
+    return data.publicUrl;
+  } catch (err) {
+    console.error('[Storage] Upload exception:', err);
+    return null;
+  }
 }
