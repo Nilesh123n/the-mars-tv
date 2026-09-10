@@ -137,7 +137,7 @@ export default function SponsoredProperties({
                   </button>
 
                   <div className="absolute bottom-3 left-3 bg-black/70 backdrop-blur-md px-2.5 py-1 rounded-md text-white text-[11px] font-semibold">
-                    {property.propertyType}
+                    {property.city ? (property.state ? `${property.city}, ${property.state}` : property.city) : (property.state || property.propertyType)}
                   </div>
                 </div>
 

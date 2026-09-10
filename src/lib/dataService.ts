@@ -1001,11 +1001,35 @@ export class DataService {
 
           if (error) {
             console.warn('[PropertyService] Primary Supabase upsert error:', error.message);
-            // If error is caused by missing video_url column in an older database, retry without it
+            // If error is caused by a column that doesn't exist in an older/out-of-sync database, retry without it
+            const fallbackRow = { ...supabaseRow };
+            let shouldRetry = false;
             if (error.message && (error.message.includes('video_url') || error.message.includes('youtube_url'))) {
-              const fallbackRow = { ...supabaseRow };
               delete fallbackRow.video_url;
               delete fallbackRow.youtube_url;
+              shouldRetry = true;
+            }
+            if (error.message && error.message.includes('state')) {
+              delete fallbackRow.state;
+              shouldRetry = true;
+            }
+            if (error.message && error.message.includes('is_exclusive')) {
+              delete fallbackRow.is_exclusive;
+              shouldRetry = true;
+            }
+            if (error.message && error.message.includes('display_sections')) {
+              delete fallbackRow.display_sections;
+              shouldRetry = true;
+            }
+            if (error.message && error.message.includes('builder')) {
+              delete fallbackRow.builder;
+              shouldRetry = true;
+            }
+            if (error.message && error.message.includes('project_type')) {
+              delete fallbackRow.project_type;
+              shouldRetry = true;
+            }
+            if (shouldRetry) {
               const retryRes = await supabase
                 .from('properties')
                 .upsert(fallbackRow, { onConflict: 'id' })
@@ -1015,8 +1039,8 @@ export class DataService {
           }
 
           if (error) {
-            console.error('[PropertyService] Supabase upsert warning:', error.message);
-            return localUpdated;
+            console.error('[PropertyService] Supabase upsert FAILED:', error.message);
+            throw new Error(error.message || 'Failed to save property to database');
           }
 
           // Supabase success — fresh list fetch karo
@@ -1291,7 +1315,24 @@ export class DataService {
       const supabase = getSupabaseClient();
       if (supabase) {
         const row = toSupabaseNewsRow(item);
-        const { error } = await supabase.from('news_items').upsert(row, { onConflict: 'id' });
+        let { error } = await supabase.from('news_items').upsert(row, { onConflict: 'id' });
+
+        if (
+          error &&
+          error.message &&
+          (error.message.includes('state') ||
+            error.message.includes('city') ||
+            error.message.includes('location'))
+        ) {
+          console.warn('[NewsService] Retrying upsert without extra location columns:', error.message);
+          const fallbackRow = { ...row };
+          delete fallbackRow.state;
+          delete fallbackRow.city;
+          delete fallbackRow.location;
+          const retryRes = await supabase.from('news_items').upsert(fallbackRow, { onConflict: 'id' });
+          error = retryRes.error;
+        }
+
         if (error) {
           console.error('Supabase save news FAILED:', error);
           throw new Error(error.message || 'Failed to save article to database');

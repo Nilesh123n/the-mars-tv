@@ -347,6 +347,7 @@ export const INTERNATIONAL_LOCATION_DATA: StateRegionItem[] = [
 export function checkLocationMatch(
   item: {
     city?: string;
+    state?: string;
     location?: string;
     title?: string;
     description?: string;
@@ -359,20 +360,23 @@ export function checkLocationMatch(
   selectedStateId: string | null,
   selectedCityId: string | null
 ): boolean {
-  // 1. Region check
-  if (selectedRegion !== 'ALL') {
-    const itemRegion = item.region || (
-      (item.category || '').includes('International') ||
-      (item.title || '').toLowerCase().includes('dubai') ||
-      (item.title || '').toLowerCase().includes('london') ||
-      (item.title || '').toLowerCase().includes('singapore') ||
-      (item.title || '').toLowerCase().includes('new york') ||
-      (item.city || '').toLowerCase().includes('dubai') ||
-      (item.city || '').toLowerCase().includes('london')
-        ? 'International'
-        : 'India'
-    );
+  // 1. Determine item region
+  const itemRegion: 'India' | 'International' = item.region
+    ? (item.region.toLowerCase() === 'international' ? 'International' : 'India')
+    : (
+        (item.category || '').includes('International') ||
+        (item.title || '').toLowerCase().includes('dubai') ||
+        (item.title || '').toLowerCase().includes('london') ||
+        (item.title || '').toLowerCase().includes('singapore') ||
+        (item.title || '').toLowerCase().includes('new york') ||
+        (item.city || '').toLowerCase().includes('dubai') ||
+        (item.city || '').toLowerCase().includes('london')
+          ? 'International'
+          : 'India'
+      );
 
+  // Region check
+  if (selectedRegion !== 'ALL') {
     if (itemRegion.toLowerCase() !== selectedRegion.toLowerCase()) {
       return false;
     }
@@ -383,20 +387,27 @@ export function checkLocationMatch(
     return true;
   }
 
-  // Combine full text corpus for comprehensive search
+  // Combine full text corpus for comprehensive fallback search
   const textCorpus = [
+    item.state || '',
     item.city || '',
     item.location || '',
     item.title || '',
     item.description || '',
     item.excerpt || '',
     item.content || '',
-    item.category || ''
+    item.category || '',
   ].join(' ').toLowerCase();
 
-  // Find targeted city or state
-  const dataset = selectedRegion === 'International' ? INTERNATIONAL_LOCATION_DATA : INDIA_LOCATION_DATA;
+  // Find targeted city or state dataset
+  const dataset =
+    selectedRegion === 'International'
+      ? INTERNATIONAL_LOCATION_DATA
+      : selectedRegion === 'India'
+      ? INDIA_LOCATION_DATA
+      : [...INDIA_LOCATION_DATA, ...INTERNATIONAL_LOCATION_DATA];
 
+  // 2. City-level precision matching
   if (selectedCityId) {
     let matchedCityObj: CityItem | undefined;
     for (const state of dataset) {
@@ -407,23 +418,103 @@ export function checkLocationMatch(
       }
     }
 
-    if (matchedCityObj) {
-      // Check if any keyword or city name matches the text corpus
-      const matches = matchedCityObj.keywords.some((kw) => textCorpus.includes(kw.toLowerCase()));
-      return matches;
-    }
-  }
+    const itemCityNorm = (item.city || '').toLowerCase().trim();
+    const selCityIdNorm = selectedCityId.toLowerCase().trim();
+    const selCityIdSpaced = selCityIdNorm.replace(/-/g, ' ');
 
-  if (selectedStateId) {
-    const stateObj = dataset.find((s) => s.id === selectedStateId);
-    if (stateObj) {
-      // Matches state name OR any city under this state
-      if (textCorpus.includes(stateObj.name.toLowerCase())) return true;
-      for (const city of stateObj.cities) {
-        if (city.keywords.some((kw) => textCorpus.includes(kw.toLowerCase()))) {
+    // A. Direct exact city name match on item.city
+    if (itemCityNorm) {
+      if (itemCityNorm === selCityIdNorm || itemCityNorm === selCityIdSpaced) {
+        return true;
+      }
+      if (matchedCityObj) {
+        const targetCityName = matchedCityObj.name.toLowerCase().trim();
+        if (
+          itemCityNorm === targetCityName ||
+          itemCityNorm.includes(targetCityName) ||
+          targetCityName.includes(itemCityNorm)
+        ) {
+          return true;
+        }
+        if (matchedCityObj.keywords.some((kw) => kw.toLowerCase().trim() === itemCityNorm)) {
           return true;
         }
       }
+    }
+
+    // B. Match within item.location or text corpus
+    if (matchedCityObj) {
+      const targetCityName = matchedCityObj.name.toLowerCase().trim();
+      if (textCorpus.includes(targetCityName)) {
+        return true;
+      }
+      if (matchedCityObj.keywords.some((kw) => textCorpus.includes(kw.toLowerCase().trim()))) {
+        return true;
+      }
+    }
+
+    // C. Fallback slug match
+    if (textCorpus.includes(selCityIdSpaced) || textCorpus.includes(selCityIdNorm)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  // 3. State-level precision matching (when state is selected and city is ALL/null)
+  if (selectedStateId) {
+    const stateObj = dataset.find((s) => s.id === selectedStateId);
+    if (stateObj) {
+      const targetStateName = stateObj.name.toLowerCase().trim();
+      const itemStateNorm = (item.state || '').toLowerCase().trim();
+      const itemCityNorm = (item.city || '').toLowerCase().trim();
+
+      // A. Direct match on item.state
+      if (itemStateNorm) {
+        if (
+          itemStateNorm === targetStateName ||
+          itemStateNorm === stateObj.id.toLowerCase() ||
+          itemStateNorm.includes(targetStateName) ||
+          targetStateName.includes(itemStateNorm)
+        ) {
+          return true;
+        }
+      }
+
+      // B. Direct match on item.city belonging to this state's city roster
+      if (itemCityNorm) {
+        const belongsToState = stateObj.cities.some((c) => {
+          const cName = c.name.toLowerCase().trim();
+          const cId = c.id.toLowerCase().trim();
+          return (
+            itemCityNorm === cName ||
+            itemCityNorm === cId ||
+            itemCityNorm.includes(cName) ||
+            cName.includes(itemCityNorm) ||
+            (c.keywords && c.keywords.some((kw) => kw.toLowerCase().trim() === itemCityNorm))
+          );
+        });
+        if (belongsToState) {
+          return true;
+        }
+      }
+
+      // C. Match state name in text corpus
+      if (textCorpus.includes(targetStateName)) {
+        return true;
+      }
+
+      // D. Match any city or city keyword belonging to this state in text corpus
+      for (const city of stateObj.cities) {
+        const cName = city.name.toLowerCase().trim();
+        if (textCorpus.includes(cName)) {
+          return true;
+        }
+        if (city.keywords.some((kw) => textCorpus.includes(kw.toLowerCase().trim()))) {
+          return true;
+        }
+      }
+
       return false;
     }
   }

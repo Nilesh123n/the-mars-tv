@@ -17,6 +17,7 @@ export interface Property {
   priceLabel: string;
   location: string;
   city: string;
+  state?: string;
   region?: 'India' | 'International';
   area: number;
   areaUnit?: string;
@@ -78,6 +79,8 @@ export interface Project {
   priceLabel: string;
   location: string;
   city: string;
+  state?: string;
+  region?: 'India' | 'International';
   projectType: ProjectType;
   status: string;
   possession: string;

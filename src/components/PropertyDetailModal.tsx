@@ -271,9 +271,25 @@ export default function PropertyDetailModal({
               >
                 {property.title}
               </h1>
-              <div className="flex items-center gap-2 text-gray-500 mt-2 text-[14px]">
-                <MapPin className="w-4 h-4 text-[#D61F26] flex-shrink-0" />
-                <span>{property.location}, {property.city}</span>
+              <div className="flex flex-wrap items-center gap-2 mt-2.5">
+                <div className="flex items-center gap-1.5 text-gray-600 text-[13.5px]">
+                  <MapPin className="w-4 h-4 text-[#D61F26] flex-shrink-0" />
+                  <span className="font-medium">
+                    {property.location}
+                    {property.city && !property.location?.toLowerCase().includes(property.city.toLowerCase()) ? `, ${property.city}` : ''}
+                    {property.state && !property.location?.toLowerCase().includes(property.state.toLowerCase()) ? `, ${property.state}` : ''}
+                  </span>
+                </div>
+                {property.state && (
+                  <span className="bg-red-50 text-[#D61F26] border border-red-200 text-xs font-bold px-2.5 py-0.5 rounded-full">
+                    {property.region === 'International' ? '🌐 ' : '🇮🇳 '}{property.state}
+                  </span>
+                )}
+                {property.city && (
+                  <span className="bg-gray-100 text-gray-800 border border-gray-200 text-xs font-semibold px-2 py-0.5 rounded-full">
+                    📍 {property.city}
+                  </span>
+                )}
               </div>
             </div>
 

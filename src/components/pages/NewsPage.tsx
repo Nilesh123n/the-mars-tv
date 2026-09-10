@@ -311,10 +311,10 @@ export default function NewsPage({
                             {item.category}
                           </span>
 
-                          {item.city && (
+                          {(item.city || item.state) && (
                             <span className="flex items-center gap-1 bg-gray-50 text-gray-700 text-[11px] font-semibold px-2.5 py-1 rounded-md border border-gray-200">
                               <MapPin className="w-3 h-3 text-[#D61F26]" />
-                              <span>{item.city}</span>
+                              <span>{item.city && item.state ? `${item.city}, ${item.state}` : (item.city || item.state)}</span>
                             </span>
                           )}
                         </div>

@@ -135,9 +135,9 @@ export default function LatestNews({
                       <span className="bg-gray-100 text-gray-800 text-[11px] font-bold px-2.5 py-1 rounded-md border border-gray-200">
                         {item.category}
                       </span>
-                      {item.city && (
+                      {(item.city || item.state) && (
                         <span className="bg-gray-50 text-gray-700 text-[11px] font-semibold px-2 py-1 rounded-md border border-gray-200">
-                          📍 {item.city}
+                          📍 {item.city && item.state ? `${item.city}, ${item.state}` : (item.city || item.state)}
                         </span>
                       )}
                     </div>

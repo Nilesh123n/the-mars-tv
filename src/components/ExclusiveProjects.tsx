@@ -68,6 +68,8 @@ function convertPropertyToProject(prop: Property, targetSection?: string): Proje
     priceLabel: prop.priceLabel || (prop.price ? `₹${(prop.price / 100000).toFixed(2)} Lac` : 'Price on Request'),
     location: prop.location,
     city: prop.city || 'Indore',
+    state: prop.state,
+    region: prop.region,
     projectType: pType,
     status: prop.status || 'ACTIVE',
     possession:
@@ -382,7 +384,7 @@ export default function ExclusiveProjects({
                   </div>
 
                   <div className="absolute bottom-3 left-3 bg-white/90 backdrop-blur-md text-gray-900 text-[11px] font-bold px-2.5 py-0.5 rounded-md shadow-sm">
-                    {project.city}
+                    {project.city ? (project.state ? `${project.city}, ${project.state}` : project.city) : (project.state || 'Indore')}
                   </div>
 
                   {((project.images && project.images.length > 1) || (properties?.find(p => p.id === project.id)?.images?.length || 0) > 1) && (
@@ -552,7 +554,7 @@ export default function ExclusiveProjects({
                   </div>
                 </div>
                 <div className="absolute bottom-3 left-3 bg-white/90 backdrop-blur-md text-gray-900 text-[11px] font-bold px-2.5 py-0.5 rounded-md shadow-sm">
-                  {project.city}
+                  {project.city ? (project.state ? `${project.city}, ${project.state}` : project.city) : (project.state || 'Indore')}
                 </div>
 
                 {((project.images && project.images.length > 1) || (properties?.find(p => p.id === project.id)?.images?.length || 0) > 1) && (

@@ -430,8 +430,17 @@ export default function AdminSecretPage({
 
       const cleanVideoUrl = (editingProperty.youtubeUrl || editingProperty.videoUrl || '').trim();
 
+      const stateList = propModalRegion === 'India' ? INDIA_LOCATION_DATA : INTERNATIONAL_LOCATION_DATA;
+      const activeState = stateList.find((s) => s.id === propModalStateId) || stateList[0];
+      const stateName = editingProperty.state || (activeState ? activeState.name : (propModalRegion === 'India' ? 'Madhya Pradesh' : 'UAE'));
+      const cityName = editingProperty.city?.trim() || activeState?.cities[0]?.name || 'Indore';
+
       const propertyToSave: Property = {
         ...editingProperty,
+        region: propModalRegion,
+        state: stateName,
+        city: cityName,
+        location: editingProperty.location?.trim() || `${cityName}, ${stateName}`,
         images: cleanImages,
         videoUrl: cleanVideoUrl || undefined,
         youtubeUrl: cleanVideoUrl || undefined,
@@ -505,27 +514,34 @@ export default function AdminSecretPage({
   };
 
   const openEditProperty = (prop: Property) => {
-    const query = `${prop.city || ''} ${prop.location || ''}`.toLowerCase();
-    let foundRegion: 'India' | 'International' = 'India';
-    let foundStateId = 'madhya-pradesh';
+    let foundRegion: 'India' | 'International' = prop.region === 'International' ? 'International' : 'India';
+    let foundStateId = foundRegion === 'International' ? 'uae-middle-east' : 'madhya-pradesh';
 
-    for (const st of INTERNATIONAL_LOCATION_DATA) {
-      if (
-        query.includes(st.name.toLowerCase()) ||
-        st.cities.some(
-          (c) =>
-            query.includes(c.name.toLowerCase()) ||
-            (c.keywords && c.keywords.some((a) => query.includes(a.toLowerCase())))
-        )
-      ) {
-        foundRegion = 'International';
-        foundStateId = st.id;
-        break;
+    const allStates = [...INDIA_LOCATION_DATA, ...INTERNATIONAL_LOCATION_DATA];
+    if (prop.state) {
+      const stateLower = prop.state.toLowerCase().trim();
+      const match = allStates.find((s) => s.name.toLowerCase() === stateLower || s.id === stateLower);
+      if (match) {
+        foundRegion = match.region;
+        foundStateId = match.id;
       }
-    }
-
-    if (foundRegion === 'India') {
-      for (const st of INDIA_LOCATION_DATA) {
+    } else if (prop.city) {
+      const cityLower = prop.city.toLowerCase().trim();
+      const match = allStates.find((s) =>
+        s.cities.some(
+          (c) =>
+            c.name.toLowerCase() === cityLower ||
+            c.id === cityLower ||
+            (c.keywords && c.keywords.some((k) => k.toLowerCase() === cityLower))
+        )
+      );
+      if (match) {
+        foundRegion = match.region;
+        foundStateId = match.id;
+      }
+    } else {
+      const query = `${prop.city || ''} ${prop.location || ''}`.toLowerCase();
+      for (const st of allStates) {
         if (
           query.includes(st.name.toLowerCase()) ||
           st.cities.some(
@@ -534,6 +550,7 @@ export default function AdminSecretPage({
               (c.keywords && c.keywords.some((a) => query.includes(a.toLowerCase())))
           )
         ) {
+          foundRegion = st.region;
           foundStateId = st.id;
           break;
         }
@@ -638,28 +655,52 @@ export default function AdminSecretPage({
   // 2. NEWS ACTIONS
   // -------------------------------------------------------------
   const openEditNews = (item: NewsItem) => {
-    const reg: 'India' | 'International' = item.region === 'International' ? 'International' : 'India';
-    setNewsModalRegion(reg);
-
-    const query = `${item.title || ''} ${item.excerpt || ''} ${item.content || ''}`.toLowerCase();
+    let reg: 'India' | 'International' = item.region === 'International' ? 'International' : 'India';
+    const allStates = [...INDIA_LOCATION_DATA, ...INTERNATIONAL_LOCATION_DATA];
     let foundStateId = reg === 'International' ? 'uae-middle-east' : 'madhya-pradesh';
-    const list = reg === 'International' ? INTERNATIONAL_LOCATION_DATA : INDIA_LOCATION_DATA;
-    for (const st of list) {
-      if (
-        query.includes(st.name.toLowerCase()) ||
-        st.cities.some(
+
+    if (item.state) {
+      const stateLower = item.state.toLowerCase().trim();
+      const match = allStates.find((s) => s.name.toLowerCase() === stateLower || s.id === stateLower);
+      if (match) {
+        reg = match.region;
+        foundStateId = match.id;
+      }
+    } else if (item.city) {
+      const cityLower = item.city.toLowerCase().trim();
+      const match = allStates.find((s) =>
+        s.cities.some(
           (c) =>
-            query.includes(c.name.toLowerCase()) ||
-            (c.keywords && c.keywords.some((a) => query.includes(a.toLowerCase())))
+            c.name.toLowerCase() === cityLower ||
+            c.id === cityLower ||
+            (c.keywords && c.keywords.some((k) => k.toLowerCase() === cityLower))
         )
-      ) {
-        foundStateId = st.id;
-        break;
+      );
+      if (match) {
+        reg = match.region;
+        foundStateId = match.id;
+      }
+    } else {
+      const query = `${item.title || ''} ${item.excerpt || ''} ${item.content || ''}`.toLowerCase();
+      const list = reg === 'International' ? INTERNATIONAL_LOCATION_DATA : INDIA_LOCATION_DATA;
+      for (const st of list) {
+        if (
+          query.includes(st.name.toLowerCase()) ||
+          st.cities.some(
+            (c) =>
+              query.includes(c.name.toLowerCase()) ||
+              (c.keywords && c.keywords.some((a) => query.includes(a.toLowerCase())))
+          )
+        ) {
+          foundStateId = st.id;
+          break;
+        }
       }
     }
 
+    setNewsModalRegion(reg);
     setNewsModalStateId(foundStateId);
-    setEditingNews({ ...item });
+    setEditingNews({ ...item, region: reg });
     setIsNewNews(false);
   };
 
@@ -668,9 +709,22 @@ export default function AdminSecretPage({
     if (!editingNews) return;
 
     try {
-      const updated = await DataService.saveNewsItem(editingNews);
+      const stateList = newsModalRegion === 'India' ? INDIA_LOCATION_DATA : INTERNATIONAL_LOCATION_DATA;
+      const activeState = stateList.find((s) => s.id === newsModalStateId) || stateList[0];
+      const stateName = editingNews.state || (activeState ? activeState.name : (newsModalRegion === 'India' ? 'Madhya Pradesh' : 'UAE'));
+      const cityName = editingNews.city?.trim() || '';
+
+      const newsToSave: NewsItem = {
+        ...editingNews,
+        region: newsModalRegion,
+        state: stateName,
+        city: cityName || undefined,
+        location: editingNews.location?.trim() || (cityName ? `${cityName}, ${stateName}` : stateName),
+      };
+
+      const updated = await DataService.saveNewsItem(newsToSave);
       setNewsItems(updated);
-      showToast(isNewNews ? `Article "${editingNews.title}" added & saved to database!` : `Updated article "${editingNews.title}"`);
+      showToast(isNewNews ? `Article "${newsToSave.title}" added & saved to database!` : `Updated article "${newsToSave.title}"`);
       setEditingNews(null);
       setIsNewNews(false);
     } catch (err: any) {
@@ -704,6 +758,9 @@ export default function AdminSecretPage({
       content: '',
       category: 'Market Trends',
       region: 'India',
+      state: 'Madhya Pradesh',
+      city: 'Indore',
+      location: 'Indore, Madhya Pradesh',
       image: '',
       author: 'Editor Desk',
       publishedAt: new Date().toISOString(),
@@ -3086,6 +3143,8 @@ export default function AdminSecretPage({
                         setPropModalStateId(firstState.id);
                         setEditingProperty({
                           ...editingProperty,
+                          region: 'India',
+                          state: firstState.name,
                           city: firstState.cities[0].name,
                           location: editingProperty.location.includes(',') ? editingProperty.location : `${editingProperty.location || firstState.cities[0].name}, ${firstState.name}`,
                         });
@@ -3106,6 +3165,8 @@ export default function AdminSecretPage({
                         setPropModalStateId(firstIntl.id);
                         setEditingProperty({
                           ...editingProperty,
+                          region: 'International',
+                          state: firstIntl.name,
                           city: firstIntl.cities[0].name,
                           location: `${firstIntl.cities[0].name}, ${firstIntl.name}`,
                         });
@@ -3136,7 +3197,10 @@ export default function AdminSecretPage({
                           if (stateObj && stateObj.cities.length > 0) {
                             setEditingProperty({
                               ...editingProperty,
+                              region: propModalRegion,
+                              state: stateObj.name,
                               city: stateObj.cities[0].name,
+                              location: `${stateObj.cities[0].name}, ${stateObj.name}`,
                             });
                           }
                         }}
@@ -3160,12 +3224,16 @@ export default function AdminSecretPage({
                         return (
                           <select
                             value={editingProperty.city}
-                            onChange={(e) =>
+                            onChange={(e) => {
+                              const newCity = e.target.value;
                               setEditingProperty({
                                 ...editingProperty,
-                                city: e.target.value,
-                              })
-                            }
+                                region: propModalRegion,
+                                state: activeState ? activeState.name : undefined,
+                                city: newCity,
+                                location: editingProperty.location ? editingProperty.location : `${newCity}, ${activeState?.name || ''}`,
+                              });
+                            }}
                             className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-xs font-bold text-gray-900 focus:outline-none focus:border-[#D61F26]"
                           >
                             {activeState.cities.map((city) => (
@@ -4315,7 +4383,9 @@ export default function AdminSecretPage({
                       setEditingNews({
                         ...editingNews,
                         region: 'India',
+                        state: firstState.name,
                         city: firstState.cities[0].name,
+                        location: `${firstState.cities[0].name}, ${firstState.name}`,
                       });
                     }}
                     className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
@@ -4335,7 +4405,9 @@ export default function AdminSecretPage({
                       setEditingNews({
                         ...editingNews,
                         region: 'International',
+                        state: firstIntl.name,
                         city: firstIntl.cities[0].name,
+                        location: `${firstIntl.cities[0].name}, ${firstIntl.name}`,
                       });
                     }}
                     className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
@@ -4364,7 +4436,10 @@ export default function AdminSecretPage({
                         if (stateObj && stateObj.cities.length > 0) {
                           setEditingNews({
                             ...editingNews,
+                            region: newsModalRegion,
+                            state: stateObj.name,
                             city: stateObj.cities[0].name,
+                            location: `${stateObj.cities[0].name}, ${stateObj.name}`,
                           });
                         }
                       }}
@@ -4388,12 +4463,16 @@ export default function AdminSecretPage({
                       return (
                         <select
                           value={editingNews.city || ''}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const newCity = e.target.value;
                             setEditingNews({
                               ...editingNews,
-                              city: e.target.value,
-                            })
-                          }
+                              region: newsModalRegion,
+                              state: activeState ? activeState.name : undefined,
+                              city: newCity,
+                              location: newCity && activeState ? `${newCity}, ${activeState.name}` : (newCity || activeState?.name),
+                            });
+                          }}
                           className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-xs font-bold text-gray-900 focus:outline-none focus:border-[#D61F26]"
                         >
                           <option value="">All State-wide / National</option>

@@ -143,9 +143,9 @@ export default function NewsDetailModal({ news, onClose }: NewsDetailModalProps)
             <span className="bg-gray-100 text-gray-800 text-[11px] font-bold px-3 py-1 rounded-md border border-gray-200">
               {news.category}
             </span>
-            {news.city && (
+            {(news.city || news.state) && (
               <span className="flex items-center gap-1 bg-gray-50 text-gray-700 text-[11px] font-semibold px-2.5 py-1 rounded-md border border-gray-200">
-                <span>📍 {news.city}</span>
+                <span>📍 {news.city && news.state ? `${news.city}, ${news.state}` : (news.city || news.state)}</span>
               </span>
             )}
           </div>

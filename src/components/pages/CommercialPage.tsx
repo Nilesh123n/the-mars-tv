@@ -180,6 +180,10 @@ export default function CommercialPage({
                     >
                       <Heart className={`w-4.5 h-4.5 ${isSaved ? 'fill-[#D61F26] text-[#D61F26]' : ''}`} />
                     </button>
+
+                    <div className="absolute bottom-3 left-3 bg-black/70 backdrop-blur-md px-2.5 py-1 rounded-md text-white text-[11px] font-semibold">
+                      {property.city ? (property.state ? `${property.city}, ${property.state}` : property.city) : (property.state || 'Indore')}
+                    </div>
                   </div>
 
                   <div className="p-5 flex-1 flex flex-col justify-between">

@@ -1,4 +1,41 @@
 import { Property, PropertyType, ListingType, PropertyStatus, UserRole, NewsItem, PRServiceItem, Lead, ConstructionPackage, SiteSettings, Project, ProjectType } from '../types';
+import { INDIA_LOCATION_DATA, INTERNATIONAL_LOCATION_DATA } from '../data/locationHierarchy';
+
+function inferStateFromCityOrText(city?: string, text?: string): { state?: string; region: 'India' | 'International' } {
+  const allStates = [...INDIA_LOCATION_DATA, ...INTERNATIONAL_LOCATION_DATA];
+  const query = `${city || ''} ${text || ''}`.toLowerCase().trim();
+
+  if (city) {
+    const cityLower = city.toLowerCase().trim();
+    for (const st of allStates) {
+      if (
+        st.cities.some(
+          (c) =>
+            c.name.toLowerCase() === cityLower ||
+            c.id === cityLower ||
+            (c.keywords && c.keywords.some((k) => k.toLowerCase() === cityLower))
+        )
+      ) {
+        return { state: st.name, region: st.region };
+      }
+    }
+  }
+
+  if (query) {
+    for (const st of allStates) {
+      if (query.includes(st.name.toLowerCase())) {
+        return { state: st.name, region: st.region };
+      }
+      for (const c of st.cities) {
+        if (query.includes(c.name.toLowerCase())) {
+          return { state: st.name, region: st.region };
+        }
+      }
+    }
+  }
+
+  return { state: undefined, region: 'India' };
+}
 
 // ============================================================================
 // 1. PROPERTY MAPPERS
@@ -81,6 +118,14 @@ export function fromSupabaseRow(row: any): Property {
       ? `₹ ${(rawPrice / 100000).toFixed(2)} L`
       : `₹ ${rawPrice.toLocaleString('en-IN')}`);
 
+  let state = row.state || row.state_name || undefined;
+  let region: 'India' | 'International' = row.region === 'International' ? 'International' : 'India';
+  if (!state) {
+    const inferred = inferStateFromCityOrText(row.city, `${row.location || ''} ${row.address || ''}`);
+    state = inferred.state;
+    if (inferred.region) region = inferred.region;
+  }
+
   return {
     id: String(row.id),
     submissionId: row.submissionId || row.submission_id || undefined,
@@ -91,7 +136,8 @@ export function fromSupabaseRow(row: any): Property {
     priceLabel: formattedPrice,
     location: row.location || row.locality || row.city || 'Indore',
     city: row.city || 'Indore',
-    region: row.region === 'International' ? 'International' : 'India',
+    state: state,
+    region: region,
     locality: row.locality || '',
     address: row.address || '',
     pincode: row.pincode || '',
@@ -167,6 +213,7 @@ export function toSupabaseRow(property: Property): Record<string, any> {
     price_label: property.priceLabel || '',
     location: property.location || '',
     city: property.city || 'Indore',
+    state: property.state || null,
     region: property.region || 'India',
     locality: property.locality || null,
     address: property.address || null,
@@ -219,6 +266,17 @@ export function toSupabaseRow(property: Property): Record<string, any> {
 // ============================================================================
 
 export function fromSupabaseNewsRow(row: any): NewsItem {
+  let city = row.city || row.city_name || undefined;
+  let state = row.state || row.state_name || undefined;
+  let location = row.location || undefined;
+  let region: 'India' | 'International' = row.region === 'International' ? 'International' : 'India';
+
+  if (!state || !city) {
+    const inferred = inferStateFromCityOrText(city, `${row.category || ''} ${row.title || ''} ${row.location || ''} ${row.content || ''}`);
+    if (!state && inferred.state) state = inferred.state;
+    if (inferred.region) region = inferred.region;
+  }
+
   return {
     id: String(row.id),
     title: row.title || 'Untitled News',
@@ -226,7 +284,10 @@ export function fromSupabaseNewsRow(row: any): NewsItem {
     excerpt: row.excerpt || '',
     content: row.content || '',
     category: row.category || 'Indore Real Estate',
-    region: row.region === 'International' ? 'International' : 'India',
+    region,
+    state,
+    city,
+    location: location || (city && state ? `${city}, ${state}` : city || state || undefined),
     image: row.image || 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1200&q=80',
     author: row.author || 'The Mars TV News Desk',
     publishedAt: row.publishedAt || row.published_at || new Date().toISOString(),
@@ -245,12 +306,17 @@ export function toSupabaseNewsRow(item: NewsItem): Record<string, any> {
     content: item.content || '',
     category: item.category,
     region: item.region || 'India',
+    state: item.state || null,
+    city: item.city || null,
+    location: item.location || (item.city && item.state ? `${item.city}, ${item.state}` : item.city || item.state || null),
     image: item.image,
     author: item.author || 'The Mars TV News Desk',
     published_at: item.publishedAt || new Date().toISOString(),
     is_featured: Boolean(item.isFeatured),
     status: item.status || 'PUBLISHED',
     view_count: Number(item.viewCount || 100),
+    created_at: item.publishedAt || new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   };
 }
 
@@ -481,6 +547,14 @@ export function fromSupabaseProjectRow(row: any): Project {
     images = [{ url: row.image, isPrimary: true, alt: row.title || 'Project Image' }];
   }
 
+  let state = row.state || row.state_name || undefined;
+  let region: 'India' | 'International' = row.region === 'International' ? 'International' : 'India';
+  if (!state) {
+    const inferred = inferStateFromCityOrText(row.city, row.location);
+    state = inferred.state;
+    if (inferred.region) region = inferred.region;
+  }
+
   return {
     id: String(row.id),
     title: row.title || 'Exclusive Project',
@@ -491,6 +565,8 @@ export function fromSupabaseProjectRow(row: any): Project {
     priceLabel: formattedPrice,
     location: row.location || 'Indore',
     city: row.city || 'Indore',
+    state,
+    region,
     projectType: (row.projectType || row.project_type || 'RESIDENTIAL') as ProjectType,
     status: row.status || 'Under Construction',
     possession: row.possession || row.possessionDate || row.possession_date || 'Dec 2026',
@@ -522,6 +598,8 @@ export function toSupabaseProjectRow(project: Project): Record<string, any> {
     price_label: project.priceLabel || '',
     location: project.location || '',
     city: project.city || 'Indore',
+    state: project.state || null,
+    region: project.region || 'India',
     project_type: project.projectType || 'RESIDENTIAL',
     status: project.status || 'ACTIVE',
     possession_status: project.status === 'Ready to Move' ? 'READY_TO_MOVE' : 'UNDER_CONSTRUCTION',

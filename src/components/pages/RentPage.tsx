@@ -330,7 +330,7 @@ export default function RentPage({
 
                     {/* City Badge */}
                     <div className="absolute bottom-3 left-3 bg-black/75 backdrop-blur-md px-2.5 py-1 rounded-md text-white text-[11px] font-semibold border border-white/20">
-                      {property.city}
+                      {property.city ? (property.state ? `${property.city}, ${property.state}` : property.city) : (property.state || 'Indore')}
                     </div>
                   </div>
 
