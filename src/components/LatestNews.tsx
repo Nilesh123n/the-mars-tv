@@ -102,7 +102,7 @@ export default function LatestNews({
               <div
                 key={item.id}
                 onClick={() => onSelectNews(item)}
-                className="bg-white rounded-[20px] overflow-hidden border border-gray-200/90 shadow-[0_4px_20px_rgba(0,0,0,0.05)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.1)] hover:-translate-y-0.5 transition-all duration-300 flex flex-col sm:flex-row group cursor-pointer"
+                className="bg-white rounded-[20px] overflow-hidden border border-gray-200/90 shadow-[0_4px_20px_rgba(0,0,0,0.05)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.1)] hover:-translate-y-0.5 transition-all duration-300 flex flex-col sm:flex-row sm:items-start group cursor-pointer"
               >
                 {/* Left Side 16:9 Image - Seamlessly fitted into card without black/gray space */}
                 <div className="relative w-full sm:w-[340px] md:w-[380px] lg:w-[420px] aspect-[16/9] flex-shrink-0 overflow-hidden bg-gray-100">
