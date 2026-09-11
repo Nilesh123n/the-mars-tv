@@ -1320,13 +1320,15 @@ export class DataService {
           error.message &&
           (error.message.includes('state') ||
             error.message.includes('city') ||
-            error.message.includes('location'))
+            error.message.includes('location') ||
+            error.message.includes('updated_at'))
         ) {
-          console.warn('[NewsService] Retrying upsert without extra location columns:', error.message);
+          console.warn('[NewsService] Retrying upsert without extra columns:', error.message);
           const fallbackRow = { ...row };
           delete fallbackRow.state;
           delete fallbackRow.city;
           delete fallbackRow.location;
+          delete fallbackRow.updated_at;
           const retryRes = await supabase.from('news_items').upsert(fallbackRow, { onConflict: 'id' });
           error = retryRes.error;
         }
