@@ -61,9 +61,11 @@ import {
   Heading2,
   List,
   Quote,
-  Type
+  Type,
+  Code
 } from 'lucide-react';
 import ArticleRenderer from '../ArticleRenderer';
+import SchemaSEOManager from '../common/SchemaSEOManager';
 import { getYouTubeEmbedUrl, extractYouTubeId } from '../../lib/videoUtils';
 import { Property, PropertySection, NewsItem, PRServiceItem, Lead, PropertyType, ListingType, PropertyStatus, ConstructionPackage, SiteSettings, LeadStatus } from '../../types';
 import { DataService } from '../../lib/dataService';
@@ -141,7 +143,7 @@ export default function AdminSecretPage({
 
   // Active Admin Tab
   const [activeTab, setActiveTab] = useState<
-    'properties' | 'property-approval' | 'news' | 'pr-services' | 'leads' | 'construction' | 'site-settings'
+    'properties' | 'property-approval' | 'news' | 'pr-services' | 'leads' | 'construction' | 'site-settings' | 'schema-seo'
   >('properties');
 
   // Search Input with Debounce to prevent rapid re-renders / Egress
@@ -1255,10 +1257,22 @@ export default function AdminSecretPage({
               <Layout className="w-4 h-4" />
               <span>Page Details</span>
             </button>
+
+            <button
+              onClick={() => setActiveTab('schema-seo')}
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+                activeTab === 'schema-seo'
+                  ? 'bg-[#D61F26] text-white shadow-md'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              <Code className="w-4 h-4" />
+              <span>Schema SEO</span>
+            </button>
           </div>
 
           {/* Search Bar & Action Button */}
-          {activeTab !== 'site-settings' && activeTab !== 'construction' && (
+          {activeTab !== 'site-settings' && activeTab !== 'construction' && activeTab !== 'schema-seo' && (
             <div className="flex items-center gap-3 w-full sm:w-auto">
               <div className="relative flex-1 sm:w-64">
                 <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -3053,6 +3067,18 @@ export default function AdminSecretPage({
               </form>
             </div>
           </div>
+        )}
+
+        {/* TAB 7: SCHEMA.ORG & STRUCTURED DATA SEO */}
+        {activeTab === 'schema-seo' && (
+          <SchemaSEOManager
+            properties={properties}
+            newsItems={newsItems}
+            prServices={prServices}
+            constructionPackages={constructionPackages}
+            siteSettings={siteSettings}
+            showToast={showToast}
+          />
         )}
 
       </div>

@@ -26,6 +26,7 @@ import PropertyDetailModal from './components/PropertyDetailModal';
 import ListPropertyModal from './components/ListPropertyModal';
 import NewsDetailModal from './components/NewsDetailModal';
 import Toast from './components/Toast';
+import SchemaMarkup from './components/common/SchemaMarkup';
 
 // Mock Data Defaults
 import {
@@ -273,6 +274,18 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] text-[#111111] font-sans antialiased selection:bg-[#D61F26] selection:text-white flex flex-col justify-between">
+      {/* Comprehensive Dynamic Schema.org JSON-LD structured data engine */}
+      <SchemaMarkup
+        currentView={currentView}
+        selectedProperty={selectedProperty}
+        selectedNews={selectedNews}
+        properties={properties}
+        newsItems={newsItems}
+        prServices={prServices}
+        constructionPackages={constructionPackages}
+        siteSettings={siteSettings}
+      />
+
       {/* Header Navigation Bar */}
       <Header
         currentView={currentView}

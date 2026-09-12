@@ -8,6 +8,65 @@
     <meta name="description" content="Premier real estate portal to buy, sell, and rent verified residential and commercial properties in India." />
     <meta property="og:title" content="The Mars TV - Real Estate Platform" />
     <meta property="og:description" content="Premier real estate portal to buy, sell, and rent verified residential and commercial properties in India." />
+    <meta property="og:image" content="/mars_tv_logo.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <!-- Structured Data / Schema Markup for Search Engines -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": ["Organization", "RealEstateAgent"],
+          "@id": "https://themarstv.com/#organization",
+          "name": "The Mars TV",
+          "legalName": "The Mars TV Media & Real Estate Platform",
+          "alternateName": ["The Mars TV", "TheMarsTV", "Mars TV Real Estate"],
+          "url": "https://themarstv.com",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://themarstv.com/mars_tv_logo.jpg",
+            "caption": "The Mars TV Logo"
+          },
+          "image": "https://themarstv.com/mars_tv_logo.jpg",
+          "description": "Premier real estate media and property portal featuring verified residential flats, luxury villas, commercial office spaces, turnkey construction packages, and national real estate PR distribution.",
+          "telephone": "+91 98260 00000",
+          "email": "info@themarstv.com",
+          "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "101, Business Square, AB Road, Vijay Nagar",
+            "addressLocality": "Indore",
+            "addressRegion": "Madhya Pradesh",
+            "postalCode": "452010",
+            "addressCountry": "IN"
+          },
+          "geo": {
+            "@type": "GeoCoordinates",
+            "latitude": 22.7533,
+            "longitude": 75.8937
+          },
+          "areaServed": [
+            { "@type": "Country", "name": "India" },
+            { "@type": "AdministrativeArea", "name": "Madhya Pradesh" },
+            { "@type": "City", "name": "Indore" },
+            { "@type": "Country", "name": "United Arab Emirates" }
+          ]
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://themarstv.com/#website",
+          "name": "The Mars TV - Real Estate Platform",
+          "url": "https://themarstv.com",
+          "publisher": { "@id": "https://themarstv.com/#organization" },
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://themarstv.com/?q={search_term_string}",
+            "query-input": "required name=search_term_string"
+          },
+          "inLanguage": "en-IN"
+        }
+      ]
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>
