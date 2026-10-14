@@ -179,6 +179,12 @@ export function generateBreadcrumbSchema(
       case 'contact':
         items.push({ name: 'Contact Us', url: `${baseUrl}/#contact` });
         break;
+      case 'about':
+        items.push({ name: 'About Us', url: `${baseUrl}/#about` });
+        break;
+      case 'privacy-policy':
+        items.push({ name: 'Privacy Policy', url: `${baseUrl}/#privacy-policy` });
+        break;
       case 'wishlist':
         items.push({ name: 'Saved Properties', url: `${baseUrl}/#wishlist` });
         break;
@@ -267,6 +273,20 @@ export function generatePageSchema(currentView: string, siteSettings?: Partial<S
       description:
         'Connect with verified real estate consultants, schedule physical site visits, or inquire about property listing and PR services.',
       path: '/#contact',
+    },
+    about: {
+      type: 'AboutPage',
+      name: 'About The Mars TV | Premier Real Estate Media & Advisory Platform',
+      description:
+        'Learn about The Mars TV - Central India’s premier verified property marketplace, video-driven real estate journalism, RERA compliance, and turnkey construction services.',
+      path: '/#about',
+    },
+    'privacy-policy': {
+      type: 'WebPage',
+      name: 'Privacy Policy & Data Protection | The Mars TV',
+      description:
+        'Official Privacy Policy of The Mars TV. Details on data collection, site visit coordination, RERA compliance, and Digital Personal Data Protection (DPDP) rights.',
+      path: '/#privacy-policy',
     },
   };
 

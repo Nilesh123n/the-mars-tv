@@ -106,6 +106,16 @@ export default function SchemaMarkup({
           dynamicDescription =
             'Get in touch with verified real estate advisors for site visits, project listing, and media inquiries.';
           break;
+        case 'about':
+          dynamicTitle = 'About Us | The Mars TV - Verified Real Estate & Media Platform';
+          dynamicDescription =
+            'Discover how The Mars TV is revolutionizing real estate through video transparency, 100% verified listings, and turnkey construction services in India.';
+          break;
+        case 'privacy-policy':
+          dynamicTitle = 'Privacy Policy & Data Protection | The Mars TV';
+          dynamicDescription =
+            'Learn how The Mars TV protects your personal information, manages property enquiries, and complies with India DPDP Act and RERA regulations.';
+          break;
         case 'admin-secret':
           dynamicTitle = 'Admin Portal | The Mars TV';
           break;

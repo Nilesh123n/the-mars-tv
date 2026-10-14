@@ -214,6 +214,24 @@ export default function Footer({ onNavigate }: FooterProps) {
                 <p><strong className="text-white font-bold">GSTIN:</strong> 23AABCP1234F1Z9</p>
                 <p><strong className="text-white font-bold">CIN:</strong> U70109MP2022PTC061234</p>
               </div>
+
+              {/* Company & Legal Links in Footer */}
+              <div className="pt-2 flex flex-col gap-2">
+                <button
+                  onClick={() => onNavigate('about')}
+                  className="text-left text-white hover:underline text-[13px] font-semibold flex items-center gap-2 cursor-pointer transition-colors"
+                >
+                  <span className="w-1.5 h-1.5 bg-white rounded-full" />
+                  About The Mars TV
+                </button>
+                <button
+                  onClick={() => onNavigate('privacy-policy')}
+                  className="text-left text-white hover:underline text-[13px] font-semibold flex items-center gap-2 cursor-pointer transition-colors"
+                >
+                  <span className="w-1.5 h-1.5 bg-white rounded-full" />
+                  Privacy Policy &amp; Terms
+                </button>
+              </div>
             </div>
           </div>
 
@@ -224,10 +242,27 @@ export default function Footer({ onNavigate }: FooterProps) {
       <div className="border-t border-red-800 bg-red-900/40">
         <div className="max-w-[1320px] mx-auto px-4 lg:px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-[12.5px] text-white">
           <p>© {new Date().getFullYear()} The Mars TV. All rights reserved. Built for trust and excellence.</p>
-          <div className="flex items-center gap-4">
-            <span className="hover:underline cursor-pointer text-white font-medium">Privacy Policy</span>
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+            <button
+              onClick={() => onNavigate('about')}
+              className="hover:underline cursor-pointer text-white font-medium transition-colors"
+            >
+              About Us
+            </button>
             <span>•</span>
-            <span className="hover:underline cursor-pointer text-white font-medium">Terms of Service</span>
+            <button
+              onClick={() => onNavigate('privacy-policy')}
+              className="hover:underline cursor-pointer text-white font-medium transition-colors"
+            >
+              Privacy Policy
+            </button>
+            <span>•</span>
+            <button
+              onClick={() => onNavigate('contact')}
+              className="hover:underline cursor-pointer text-white font-medium transition-colors"
+            >
+              Contact
+            </button>
             <span>•</span>
             <button
               onClick={() => {

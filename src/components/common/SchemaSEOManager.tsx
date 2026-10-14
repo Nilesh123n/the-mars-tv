@@ -94,6 +94,8 @@ export default function SchemaSEOManager({
     { key: 'pr-services', label: 'Real Estate PR Services', desc: 'Media distribution & PR Service offer catalog' },
     { key: 'news', label: 'Real Estate News', desc: 'NewsMediaOrganization + ItemList of NewsArticles' },
     { key: 'contact', label: 'Contact Us', desc: 'ContactPage + LocalBusiness coordinates & desk' },
+    { key: 'about', label: 'About Us', desc: 'AboutPage + Core values, team, & mission schema' },
+    { key: 'privacy-policy', label: 'Privacy Policy', desc: 'WebPage + DPDP Act data protection disclosures' },
   ];
 
   const currentPageSchema = generatePageSchema(selectedPage, siteSettings);

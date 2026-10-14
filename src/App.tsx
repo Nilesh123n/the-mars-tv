@@ -19,6 +19,8 @@ import ConstructionPage from './components/pages/ConstructionPage';
 import NewsPage from './components/pages/NewsPage';
 import PRServicesPage from './components/pages/PRServicesPage';
 import ContactPage from './components/pages/ContactPage';
+import AboutUsPage from './components/pages/AboutUsPage';
+import PrivacyPolicyPage from './components/pages/PrivacyPolicyPage';
 import AdminSecretPage from './components/pages/AdminSecretPage';
 
 // Modals
@@ -186,11 +188,21 @@ export default function App() {
   // Hash Navigation Sync
   useEffect(() => {
     const handleHashChange = () => {
-      if (window.location.hash === '#/admin-secret') {
+      const hash = window.location.hash;
+      if (hash === '#/admin-secret') {
         setCurrentView('admin-secret');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if (hash === '#/about' || hash === '#about') {
+        setCurrentView('about');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if (hash === '#/privacy-policy' || hash === '#privacy-policy') {
+        setCurrentView('privacy-policy');
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     };
+
+    // Check on initial mount
+    handleHashChange();
 
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
@@ -443,6 +455,25 @@ export default function App() {
 
         {currentView === 'contact' && (
           <ContactPage onSubmitLead={handleAddLead} />
+        )}
+
+        {currentView === 'about' && (
+          <AboutUsPage
+            onNavigate={(view) => {
+              setCurrentView(view);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onOpenListProperty={() => setShowListPropertyModal(true)}
+          />
+        )}
+
+        {currentView === 'privacy-policy' && (
+          <PrivacyPolicyPage
+            onNavigate={(view) => {
+              setCurrentView(view);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
         )}
 
         {currentView === 'wishlist' && (
